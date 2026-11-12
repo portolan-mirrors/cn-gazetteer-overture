@@ -110,25 +110,27 @@ WITH hit AS (
   SELECT feature_id, name, level, country, parent_name,
          population, has_boundary
   FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet'
-  WHERE name_norm LIKE 'kyoto%'
-  ORDER BY level, population DESC NULLS LAST LIMIT 3
+  WHERE name_norm LIKE 'kyoto%' AND level = 1
+  ORDER BY population DESC NULLS LAST LIMIT 3
 )
 SELECT h.name, h.level, h.country, h.parent_name,
        b.subtype, round(b.area_km2) AS area_km2, b.vertices
-FROM hit h LEFT JOIN 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/country/overture_country.parquet' b ON b.division_id = h.feature_id;
+FROM hit h JOIN 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/region/overture_region.parquet' b ON b.division_id = h.feature_id;
 ```
 
 ```
 name                 level  country  parent_name  subtype  area_km2  vertices
-Kyoto - præfektur    1      JPN      日本           NULL     NULL      NULL
-Kyoto İdari Bölgesi  1      JPN      日本           NULL     NULL      NULL
-Kyoto Prefecture     1      JPN      日本           NULL     NULL      NULL
+Kyoto Prefecture     1      JPN      日本           region   4601      19116
+Kyoto İdari Bölgesi  1      JPN      日本           region   4601      19116
+Kyoto - præfektur    1      JPN      日本           region   4601      19116
 ```
 
 Two steps and no server. The index resolves the prefix; `feature_id` joins to
-`division_id` in the boundary collection at the row's `level`. A `level` that
-does not match the collection joined returns NULL geometry, which is why a
-client picks the file from `level` rather than trying all five.
+`division_id` in the boundary collection at the row's `level`, which here is 1,
+so the join is against `region`. **The `level = 1` filter is not decoration**:
+join a level-4 row to the region collection and you get nothing back, which is
+why a client picks the file from `level` rather than trying all five. The three
+rows are three spellings of one division, which is what `feature_id` dedupes.
 
 **How many divisions exist per level, and how many have a boundary**
 **[derived]**

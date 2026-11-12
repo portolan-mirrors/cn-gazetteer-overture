@@ -761,18 +761,21 @@ CATALOG_QUERIES = [
         "  SELECT feature_id, name, level, country, parent_name,\n"
         "         population, has_boundary\n"
         "  FROM {T}\n"
-        "  WHERE name_norm LIKE 'kyoto%'\n"
-        "  ORDER BY level, population DESC NULLS LAST LIMIT 3\n"
+        "  WHERE name_norm LIKE 'kyoto%' AND level = 1\n"
+        "  ORDER BY population DESC NULLS LAST LIMIT 3\n"
         ")\n"
         "SELECT h.name, h.level, h.country, h.parent_name,\n"
         "       b.subtype, round(b.area_km2) AS area_km2, b.vertices\n"
-        "FROM hit h LEFT JOIN {C} b ON b.division_id = h.feature_id;",
+        "FROM hit h JOIN {C} b ON b.division_id = h.feature_id;",
         note=(
             "Two steps and no server. The index resolves the prefix; "
             "`feature_id` joins to `division_id` in the boundary collection "
-            "at the row's `level`. A `level` that does not match the "
-            "collection joined returns NULL geometry, which is why a client "
-            "picks the file from `level` rather than trying all five."
+            "at the row's `level`, which here is 1, so the join is against "
+            "`region`. **The `level = 1` filter is not decoration**: join a "
+            "level-4 row to the region collection and you get nothing back, "
+            "which is why a client picks the file from `level` rather than "
+            "trying all five. The three rows are three spellings of one "
+            "division, which is what `feature_id` dedupes."
         ),
     ),
     Q(
@@ -805,7 +808,7 @@ CATALOG_QUERIES = [
 
 def catalog_agents(con) -> str:
     manifest = json.loads((CATALOG / "names" / "index.json").read_text())
-    tables = {"T": NAMES_PATH, "C": boundary_path("country")}
+    tables = {"T": NAMES_PATH, "C": boundary_path("region")}
     lines = [
         "# AGENTS.md — EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",
         "",
