@@ -299,7 +299,11 @@ PROMINENCE = {
         "own ranking of how important a place is to show on a map. Overture "
         "documents it as cartographic guidance rather than as a measured "
         "quantity, so it is a tie-break for a search result list, not a "
-        "statistic."
+        "statistic. Measured on this release, Overture populates it on all "
+        "3,508,156 localities and on nothing else, so it appears only in the "
+        "locality collection and on level-4 rows of the search index. The "
+        "sibling `cartography` fields `min_zoom`, `max_zoom` and `sort_key` "
+        "are null on every division in the release and are not carried."
     ),
 }
 NAME_LANGS = {
@@ -1256,10 +1260,15 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
             "description": (
                 "The same rows in the same order and the same row groups as "
                 "the full file, simplified with ST_SimplifyPreserveTopology "
-                f"at {report['tolerance_deg']} degrees and then buffered "
-                f"**outward** by the same {report['tolerance_deg']} degrees, "
-                "so the shape always contains the true boundary rather than "
-                "cutting corners off it. Verified per feature: "
+                "and then buffered **outward** by the same amount, so the "
+                "shape always contains the true boundary rather than cutting "
+                "corners off it. The tolerance is per feature, "
+                f"{report['share_of_diagonal'] * 100:g}% of that feature's "
+                f"own bounding-box diagonal capped at "
+                f"{report['tolerance_ceiling_deg']} degrees, which here "
+                f"ranged from {report['tolerance_min_deg']:.3g} to "
+                f"{report['tolerance_max_deg']:.3g} degrees. Verified per "
+                "feature: "
                 f"{report['fully_contained']:,} of {report['features']:,} "
                 "contain their full-resolution polygon completely, "
                 f"{report['below_99pct']:,} fall below 99% of its area, and "
@@ -1301,10 +1310,18 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
         "pmtiles:layers": [spec["id"]],
     })
 
+    # Only the columns the file actually holds. build_boundaries.py drops a
+    # column Overture leaves null at this level, so the spec above is the
+    # superset and the file is the truth.
+    present = set(pq.ParquetFile(data).schema_arrow.names)
     columns = [
         {**col, "description": col["description"].format(**facts)}
         for col in spec["columns"]
+        if col["name"] in present
     ]
+    missing = [c["name"] for c in spec["columns"] if c["name"] not in present]
+    if missing:
+        print(f"    (not in {spec['id']}: {', '.join(missing)})")
     doc = {
         "type": "Collection",
         "stac_version": "1.1.0",

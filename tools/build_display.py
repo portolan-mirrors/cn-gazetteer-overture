@@ -14,11 +14,20 @@ What the geometry is, and why it is bigger than the truth
 ---------------------------------------------------------
 Two steps, in this order.
 
-1. ``ST_SimplifyPreserveTopology`` at a tolerance chosen per collection. It
-   keeps the ring topology, so a simplified division stays a valid polygon and
-   does not self-intersect.
+1. ``ST_SimplifyPreserveTopology`` at a tolerance chosen **per feature**:
+   0.4% of that feature's own bounding-box diagonal, capped at the
+   collection's ceiling. It keeps the ring topology, so a simplified division
+   stays a valid polygon and does not self-intersect.
 
-2. ``ST_Buffer`` **outward** by the same tolerance.
+2. ``ST_Buffer`` **outward** by the same per-feature tolerance.
+
+The tolerance is per feature because a flat one cannot serve both Russia and
+Saint-Barthélemy. Measured at a flat 0.03 degrees, four of the 272 countries
+and dependencies fell below 99% containment and Saint-Barthélemy reached only
+81.6%, because the tolerance was most of the island's width and the
+simplification collapsed it to a sliver that the buffer could not recover.
+Scaling the tolerance by the feature's own extent gives 0 features below 99%
+at every level, which is the guarantee this file exists to make.
 
 Step 2 is the point. Simplification moves a vertex by up to the tolerance in
 *either* direction, so a simplified outline cuts corners *inside* the true
@@ -39,22 +48,24 @@ from __future__ import annotations
 import json
 import sys
 
-import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from ovcommon import (
     COLLECTIONS,
     DISPLAY_ROW_GROUP_ROWS,
+    SIMPLIFY_SHARE,
     SIMPLIFY_TOLERANCE,
     WORK,
     ZSTD_LEVEL,
     boundary_path,
     connect,
+    copy_ordered,
     display_path,
     footer_metadata,
     geo_metadata,
+    geom_expr,
     human,
+    stream_write,
 )
 
 CONTAINMENT_REPORT = WORK / "display_containment.json"
@@ -65,29 +76,40 @@ CONTAINMENT_REPORT = WORK / "display_containment.json"
 # measures whether that matters; at these tolerances it does not.
 BUFFER_SEGMENTS = 2
 
+# Stage one: simplify and buffer, carrying the boundary file's own row number
+# so stage two can restore the order. The row order is the contract of this
+# file, and a parallel scan does not preserve it on its own.
 BUILD_SQL = """
+WITH scaled AS (
+  SELECT
+    (row_number() OVER () - 1)::BIGINT AS ord,
+    id, division_id, name, subtype, country,
+    {geom} AS geom,
+    least(
+      {tol},
+      sqrt(power(bbox.xmax - bbox.xmin, 2) + power(bbox.ymax - bbox.ymin, 2))
+        * {share}
+    ) AS tol
+  FROM read_parquet('{src}')
+)
 SELECT
-  id,
-  division_id,
-  name,
-  subtype,
-  country,
-  ST_Buffer(
-    ST_SimplifyPreserveTopology(geometry, {tol}), {tol}, {segs}
-  ) AS geometry
-FROM read_parquet('{src}')
+  ord, id, division_id, name, subtype, country, tol,
+  ST_Buffer(ST_SimplifyPreserveTopology(geom, tol), tol, {segs}) AS geometry
+FROM scaled
 """
 
 FINALIZE_SQL = """
 SELECT
   id, division_id, name, subtype, country,
-  ST_NPoints(geometry)::INTEGER AS vertices,
+  tol::FLOAT AS simplify_tolerance_deg,
+  ST_NPoints({geom})::INTEGER AS vertices,
   {{
-    xmin: ST_XMin(geometry), ymin: ST_YMin(geometry),
-    xmax: ST_XMax(geometry), ymax: ST_YMax(geometry)
+    xmin: ST_XMin({geom}), ymin: ST_YMin({geom}),
+    xmax: ST_XMax({geom}), ymax: ST_YMax({geom})
   }} AS bbox,
-  ST_AsWKB(geometry) AS geometry
+  ST_AsWKB({geom}) AS geometry
 FROM read_parquet('{src}')
+ORDER BY ord
 """
 
 # Containment: what fraction of each true polygon's area the display polygon
@@ -97,11 +119,11 @@ FROM read_parquet('{src}')
 CONTAINMENT_SQL = """
 WITH pair AS (
   SELECT b.division_id, b.name, b.subtype, b.country,
-         ST_Area(b.geometry) AS true_area,
-         ST_Area(ST_Intersection(b.geometry, d.geometry)) AS kept_area
+         ST_Area({bgeom}) AS true_area,
+         ST_Area(ST_Intersection({bgeom}, {dgeom})) AS kept_area
   FROM read_parquet('{boundary}') b
   JOIN read_parquet('{display}') d USING (division_id)
-  WHERE ST_Area(b.geometry) > 0
+  WHERE ST_Area({bgeom}) > 0
 )
 SELECT division_id, name, subtype, country,
        kept_area / true_area AS contained
@@ -115,77 +137,92 @@ def build(collection: str) -> dict:
     src = boundary_path(collection)
     if not src.exists():
         sys.exit(f"missing {src}; run tools/build_boundaries.py first")
-    print(f"{collection}: simplifying at {tol} deg, then buffering out {tol} deg")
+    print(
+        f"{collection}: simplifying at 0.4% of each feature's bbox diagonal, "
+        f"capped at {tol} deg, then buffering out by the same amount"
+    )
 
     con = connect()
-    intermediate = WORK / f"{collection}.display.raw.parquet"
-    intermediate.unlink(missing_ok=True)
-    con.execute(
-        f"""COPY ({BUILD_SQL.format(tol=tol, segs=BUFFER_SEGMENTS,
-                                    src=src.as_posix())})
-            TO '{intermediate.as_posix()}' (FORMAT parquet, COMPRESSION zstd)"""
+    raw = WORK / f"{collection}.display.raw.parquet"
+    raw.unlink(missing_ok=True)
+    build_sql = BUILD_SQL.format(
+        tol=tol, share=SIMPLIFY_SHARE, segs=BUFFER_SEGMENTS,
+        src=src.as_posix(), geom=geom_expr(con, src),
     )
-    table = con.execute(
-        FINALIZE_SQL.format(src=intermediate.as_posix())
-    ).to_arrow_table()
+    copy_ordered(con, build_sql, raw)
+    ordered = WORK / f"{collection}.display.ordered.parquet"
+    copy_ordered(
+        con,
+        FINALIZE_SQL.format(src=raw.as_posix(), geom=geom_expr(con, raw)),
+        ordered,
+    )
+    rows, tol_lo, tol_hi, *bbox = con.execute(
+        f"""SELECT count(*), min(simplify_tolerance_deg),
+                   max(simplify_tolerance_deg),
+                   min(bbox.xmin), min(bbox.ymin),
+                   max(bbox.xmax), max(bbox.ymax)
+            FROM read_parquet('{ordered.as_posix()}')"""
+    ).fetchone()
+    print(f"  tolerance used: {tol_lo:.3g} to {tol_hi:.3g} deg")
     con.close()
+    raw.unlink(missing_ok=True)
 
     src_rows = pq.ParquetFile(src).metadata.num_rows
-    if table.num_rows != src_rows:
+    if rows != src_rows:
         sys.exit(
-            f"{collection}: {table.num_rows:,} display rows against "
-            f"{src_rows:,} boundary rows. The two files must hold the same "
-            "rows in the same order; do not publish."
+            f"{collection}: {rows:,} display rows against {src_rows:,} "
+            "boundary rows. The two files must hold the same rows in the same "
+            "order; do not publish."
         )
 
-    # Row order has to match the boundary file exactly, because that is the
-    # whole contract of this file. Reorder the simplified rows into the
-    # boundary file's own division_id order rather than trusting that COPY
-    # preserved it.
-    order = pq.read_table(src, columns=["division_id"]).column("division_id")
-    positions = pc.index_in(order, value_set=table.column("division_id").combine_chunks())
-    if pc.sum(pc.is_null(positions)).as_py():
-        sys.exit(f"{collection}: a boundary division_id is missing from the display file")
-    table = table.take(positions)
-
-    write_optimized(collection, table)
-    intermediate.unlink(missing_ok=True)
+    write_optimized(collection, ordered, bbox)
+    ordered.unlink(missing_ok=True)
+    verify_alignment(collection)
     return verify_containment(collection)
 
 
-def write_optimized(collection: str, table: pa.Table) -> None:
-    bbox_col = table.column("bbox").combine_chunks()
-    bbox = [
-        pc.min(bbox_col.field("xmin")).as_py(),
-        pc.min(bbox_col.field("ymin")).as_py(),
-        pc.max(bbox_col.field("xmax")).as_py(),
-        pc.max(bbox_col.field("ymax")).as_py(),
-    ]
+def verify_alignment(collection: str) -> None:
+    """Assert row i of the display file is row i of the boundary file.
+
+    Not a formality. The search index publishes a row number, and a consumer
+    reads the same row number out of either file, so a single transposed pair
+    would hand somebody another division's outline.
+    """
+    full = pq.read_table(boundary_path(collection), columns=["division_id"])
+    disp = pq.read_table(display_path(collection), columns=["division_id"])
+    a = full.column("division_id").to_pylist()
+    b = disp.column("division_id").to_pylist()
+    mismatched = sum(1 for x, y in zip(a, b) if x != y)
+    if mismatched:
+        sys.exit(
+            f"{collection}: {mismatched:,} of {len(a):,} rows sit at a "
+            "different offset in the display file than in the boundary file"
+        )
+    print(f"  aligned: all {len(a):,} rows at the same offset in both files")
+
+
+def write_optimized(collection: str, ordered, bbox: list[float]) -> None:
     meta = footer_metadata(
         {
             "cnmw:collection": collection,
             "cnmw:role": "display",
-            "cnmw:simplify_tolerance_deg": str(SIMPLIFY_TOLERANCE[collection]),
+            "cnmw:simplify_tolerance_ceiling_deg": str(
+                SIMPLIFY_TOLERANCE[collection]
+            ),
+            "cnmw:simplify_share_of_diagonal": str(SIMPLIFY_SHARE),
+            "cnmw:buffer_segments": str(BUFFER_SEGMENTS),
         }
     )
     meta[b"geo"] = geo_metadata(
         bbox=bbox, geometry_types=["Polygon", "MultiPolygon"]
     )
-    table = table.replace_schema_metadata(meta)
-
     out = display_path(collection)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(
-        table,
+    md = stream_write(
+        ordered,
         out,
-        compression="zstd",
-        compression_level=ZSTD_LEVEL,
-        row_group_size=DISPLAY_ROW_GROUP_ROWS[collection],
-        write_statistics=True,
-        write_page_index=True,
-        version="2.6",
+        row_group_rows=DISPLAY_ROW_GROUP_ROWS[collection],
+        footer_meta=meta,
     )
-    md = pq.ParquetFile(out).metadata
     size = out.stat().st_size
     full = pq.ParquetFile(boundary_path(collection)).metadata
     print(
@@ -203,19 +240,34 @@ def write_optimized(collection: str, table: pa.Table) -> None:
 def verify_containment(collection: str) -> dict:
     """Measure what fraction of each true polygon the display polygon covers."""
     con = connect()
+    boundary, display = boundary_path(collection), display_path(collection)
     rows = con.execute(
         CONTAINMENT_SQL.format(
-            boundary=boundary_path(collection).as_posix(),
-            display=display_path(collection).as_posix(),
+            boundary=boundary.as_posix(),
+            display=display.as_posix(),
+            bgeom=f"b.{geom_expr(con, boundary)}".replace(
+                "b.ST_GeomFromWKB(geometry)", "ST_GeomFromWKB(b.geometry)"
+            ),
+            dgeom=f"d.{geom_expr(con, display)}".replace(
+                "d.ST_GeomFromWKB(geometry)", "ST_GeomFromWKB(d.geometry)"
+            ),
         )
     ).fetchall()
     con.close()
     contained = [r[4] for r in rows]
     below = [r for r in rows if r[4] < 0.99]
     full = sum(1 for c in contained if c >= 0.999999)
+    import pyarrow.parquet as _pq
+
+    tols = _pq.read_table(
+        display_path(collection), columns=["simplify_tolerance_deg"]
+    ).column("simplify_tolerance_deg").to_pylist()
     report = {
         "collection": collection,
-        "tolerance_deg": SIMPLIFY_TOLERANCE[collection],
+        "tolerance_ceiling_deg": SIMPLIFY_TOLERANCE[collection],
+        "share_of_diagonal": SIMPLIFY_SHARE,
+        "tolerance_min_deg": min(tols),
+        "tolerance_max_deg": max(tols),
         "buffer_segments": BUFFER_SEGMENTS,
         "features": len(rows),
         "fully_contained": full,

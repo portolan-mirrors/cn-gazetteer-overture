@@ -41,24 +41,22 @@ from __future__ import annotations
 import json
 import sys
 
-import pyarrow as pa
-import pyarrow.compute as pc
-import pyarrow.parquet as pq
-
 from ovcommon import (
     COLLECTIONS,
     GLOBAL_BOUNDS,
     PUBLISH,
     ROW_GROUP_ROWS,
-    ZSTD_LEVEL,
+    WORK,
     boundary_path,
     connect,
+    copy_ordered,
     footer_metadata,
     geo_metadata,
     human,
     register_iso3166,
     staged_area,
     staged_division,
+    stream_write,
 )
 
 SQL = """
@@ -155,7 +153,12 @@ SELECT
   ST_AsWKB(m.geometry) AS geometry
 FROM measured m
 LEFT JOIN iso3166 i ON m.country = i.alpha_2
-ORDER BY ST_Hilbert(m.geometry, {bounds})
+-- division_id breaks a tie in the Hilbert key, so the row order is
+-- reproducible across rebuilds. Without it two polygons in the same cell
+-- could swap places between runs, and the display companion's row
+-- alignment and the search index's geometry_ref would both go stale
+-- without anything failing.
+ORDER BY ST_Hilbert(m.geometry, {bounds}), m.division_id
 """
 
 
@@ -174,55 +177,67 @@ def build(collection: str) -> None:
         division=division.as_posix(),
         bounds=GLOBAL_BOUNDS,
     )
-    table = con.execute(sql).to_arrow_table()
+    ordered = WORK / f"{collection}.ordered.parquet"
+    copy_ordered(con, sql, ordered)
 
     # The join must not drop or duplicate an area row. A missing division row
     # would silently lose a polygon; a duplicate would give one GERS id two
     # geometries, which the index contract cannot express.
-    staged_rows = con.execute(
+    staged_rows, = con.execute(
         f"SELECT count(*) FROM read_parquet('{area.as_posix()}')"
-    ).fetchone()[0]
-    con.close()
-    if table.num_rows != staged_rows:
-        sys.exit(
-            f"{collection}: joined {table.num_rows:,} rows from "
-            f"{staged_rows:,} staged land polygons. The join to type=division "
-            "is not 1:1; do not publish."
-        )
-    invalid = pc.sum(pc.is_null(table.column("name"))).as_py() or 0
-    print(f"  joined {table.num_rows:,} rows, {invalid:,} with no primary name")
-
-    write_optimized(collection, table)
-
-
-def write_optimized(collection: str, table: pa.Table) -> None:
-    bbox_col = table.column("bbox").combine_chunks()
-    bbox = [
-        pc.min(bbox_col.field("xmin")).as_py(),
-        pc.min(bbox_col.field("ymin")).as_py(),
-        pc.max(bbox_col.field("xmax")).as_py(),
-        pc.max(bbox_col.field("ymax")).as_py(),
+    ).fetchone()
+    rows, unnamed, *bbox = con.execute(
+        f"""SELECT count(*), count(*) - count(name),
+                   min(bbox.xmin), min(bbox.ymin),
+                   max(bbox.xmax), max(bbox.ymax)
+            FROM read_parquet('{ordered.as_posix()}')"""
+    ).fetchone()
+    # Columns Overture populates at some levels and not at others. An
+    # all-null column is noise in table:columns and a question a consumer has
+    # to answer, so it is dropped per collection and the drop is reported.
+    # Measured on this release: cartography.prominence exists only on
+    # localities, class only on localities, admin_level only down to county.
+    candidates = [
+        "class", "prominence", "admin_level", "region", "wikidata",
+        "population", "local_type", "parent_division_id", "parent_name",
+        "parent_subtype", "country_iso2",
     ]
+    counts = con.execute(
+        "SELECT "
+        + ", ".join(f'count("{c}")' for c in candidates)
+        + f" FROM read_parquet('{ordered.as_posix()}')"
+    ).fetchone()
+    empty = [c for c, n in zip(candidates, counts) if n == 0]
+    con.close()
+    if empty:
+        print(f"  dropping all-null column(s): {', '.join(empty)}")
+    if rows != staged_rows:
+        sys.exit(
+            f"{collection}: joined {rows:,} rows from {staged_rows:,} staged "
+            "land polygons. The join to type=division is not 1:1; do not "
+            "publish."
+        )
+    print(f"  joined {rows:,} rows, {unnamed:,} with no primary name")
+
+    write_optimized(collection, ordered, bbox, empty)
+    ordered.unlink(missing_ok=True)
+
+
+def write_optimized(
+    collection: str, ordered, bbox: list[float], empty: list[str]
+) -> None:
     meta = footer_metadata({"cnmw:collection": collection})
     meta[b"geo"] = geo_metadata(
         bbox=bbox, geometry_types=["Polygon", "MultiPolygon"]
     )
-    table = table.replace_schema_metadata(meta)
-
     out = boundary_path(collection)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    pq.write_table(
-        table,
+    md = stream_write(
+        ordered,
         out,
-        compression="zstd",
-        compression_level=ZSTD_LEVEL,
-        row_group_size=ROW_GROUP_ROWS[collection],
-        write_statistics=True,
-        write_page_index=True,
-        version="2.6",
-        sorting_columns=None,
+        row_group_rows=ROW_GROUP_ROWS[collection],
+        footer_meta=meta,
+        transform=(lambda tb: tb.drop_columns(empty)) if empty else None,
     )
-    md = pq.ParquetFile(out).metadata
     size = out.stat().st_size
     per_group = size / md.num_row_groups
     print(

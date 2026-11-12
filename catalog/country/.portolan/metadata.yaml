@@ -1,0 +1,133 @@
+# Human-enriched metadata for the country collection.
+#
+# Tracked in git, never published: tools/publish.py skips every
+# dot-directory. This is the canonical home for the facts below, and
+# README.md carries the human-facing rendering. Keep the two in step by
+# rerunning tools/make_readmes.py after any edit here.
+
+license: ODbL-1.0
+license_url: https://opendatacommons.org/licenses/odbl/
+
+attribution: >
+  © OpenStreetMap contributors. Available under the Open Database License.
+  Includes data from geoBoundaries, Esri Community Maps contributors and Land
+  Information New Zealand (LINZ), each available under CC BY 4.0.
+
+citation: >
+  Overture Maps Foundation, overturemaps.org. Divisions theme, release
+  2026-10-21.0, accessed 2026-11-12.
+
+source_url: https://docs.overturemaps.org/guides/divisions
+
+processing_notes: >
+  Built by tools/stage_source.py, tools/build_boundaries.py and
+  tools/build_display.py from Overture Maps divisions release 2026-10-21.0,
+  staged on 2026-11-12 from
+  s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/ with
+  DuckDB 1.4.1 and httpfs, anonymous, region us-west-2. An Overture release
+  is immutable, so the release identifier pins the bytes and there is no
+  commit or checksum to carry.
+
+  Which rows. Every type=division_area row with subtype in (country,
+  dependency) and class = 'land', joined to its type=division row on
+  division_id. The land filter is what makes the join 1:1: Overture publishes
+  a second class = 'maritime' polygon for a coastal division, which would
+  give one GERS id two geometries. Measured: 378 country and 105 dependency
+  area rows in the release, of which 219 and 53 are land, over exactly 219
+  and 53 distinct division_id values. tools/stage_source.py asserts that and
+  refuses to publish without it.
+
+  Why dependencies are here. Overture files a dependency at admin_level 1 as
+  a separate subtype. This catalog carries it at level 0 beside the countries,
+  because an ISO 3166-1 coded dependency such as Greenland or Puerto Rico is
+  a country-equivalent for a name search. The subtype column distinguishes
+  them, and admin_level carries Overture's own value unchanged.
+
+  Columns. country is derived: ISO 3166-1 alpha-3 from Overture's alpha-2
+  through the official ISO 3166-1 table packaged with pycountry 26.2.16.
+  Overture's alpha-2 is kept unchanged in country_iso2. area_km2 and
+  perimeter_km come from DuckDB's spheroidal measures on WGS 84 with
+  coordinates flipped to latitude-first, which those functions require.
+  compactness is the Polsby-Popper ratio. vertices is ST_NPoints.
+  parent_name and parent_subtype come from a self-join on
+  parent_division_id over the whole type=division release.
+
+  Dropped as all-null at this level: class, prominence, region. Overture
+  populates class only on localities, cartography.prominence only on
+  localities, and omits region for a country by design.
+
+  Layout. 272 rows, Hilbert-ordered over the whole globe, GeoParquet 1.1 with
+  a bbox covering struct, zstd level 15, Parquet page index, 34 row groups of
+  8 rows. The row group size targets bytes rather than rows: at the measured
+  198 KB per row that is 1.58 MB per group, so a client that wants one
+  country's geometry fetches about that much rather than the whole 51 MB
+  file. gpq validate passes 20 of 20 checks.
+
+  Display file. Simplified with ST_SimplifyPreserveTopology and then buffered
+  outward by the same tolerance, at 0.4% of each feature's own bounding-box
+  diagonal capped at 0.03 degrees. A flat tolerance was measured first and
+  rejected: at 0.03 degrees flat, four features fell below 99% containment
+  and Saint-Barthélemy reached 81.6%, because the tolerance was most of the
+  island's width. With the per-feature tolerance, 210 of 272 features contain
+  their full-resolution polygon exactly, none falls below 99%, and the worst
+  is 0.997082 (Spratly Islands).
+
+known_issues: >
+  **EXPERIMENTAL.** The schema may change without notice and the Source
+  Cooperative repository is unlisted. Pin the catalog_version in
+  names/index.json if you depend on this.
+
+  **ODbL share-alike.** A database derived from this collection has to be
+  released under ODbL, and an application that shows it has to display the
+  attribution. The CC-BY-4.0 counterpart at
+  https://source.coop/portolan-mirrors/geoboundaries-catalog carries no such
+  obligation.
+
+  **Join on division_id, never on id.** Both are GERS identifiers. id
+  belongs to the division_area polygon; division_id belongs to the division,
+  and division_id is what the names collection publishes as feature_id. A
+  join on id finds nothing.
+
+  **This is the land outline, not the territorial extent.** Overture's
+  class = 'maritime' polygon, which reaches to the territorial sea, is not
+  carried. A reverse geocode of a point offshore will not land in any row
+  here. Read the maritime polygon from the Overture release if you need it.
+
+  **Antarctica is clipped at latitude -85.0511289.** That is the Web Mercator
+  limit, and it is where Overture's land polygon ends, so the collection's
+  southern extent is a projection artifact of the source rather than a
+  coastline. The 35 southernmost degrees of the continent are absent.
+
+  **25 rows carry a synthetic country code with no ISO 3166-1 alpha-3
+  equivalent**, so country and country_iso2 hold the same string on those
+  rows: CP, XA, XB, XC, XD, XE, XG, XH, XI, XJ, XK, XL, XM, XN, XO, XP, XQ,
+  XR, XS, XT, XU, XW, XX, XY, XZ. Overture's schema permits this where no
+  internationally recognized code exists, which is mostly disputed or
+  unassigned territory. A client that assumes a three-letter code will read
+  two letters on those rows.
+
+  **Disputed boundaries carry no perspective.** Overture models a contested
+  boundary through its perspectives property, and that property is NULL on
+  all 4,700,999 division rows of this release, so there is exactly one
+  representation of every division here. This catalog publishes whatever
+  Overture published; it makes no territorial claim and offers no way to
+  select a perspective. A future release that populates perspectives would
+  force a choice this catalog has not made.
+
+  **population is sparse and undated.** 212 of 272 rows have one, and
+  Overture states no vintage per value. Use it as a relevance weight, not as
+  a census figure.
+
+  **parent_name is null on the 219 countries**, which have no parent. The 53
+  dependencies carry the country they depend on.
+
+  **Row order does not help a lookup by id.** The file is Hilbert-ordered for
+  spatial queries, so the division_id statistics per row group overlap. Use
+  the geometry_ref in the names collection, which names the row group
+  directly, or read the division_id column chunks, which are a few per cent
+  of the file.
+
+  **The display file is deliberately larger than the truth.** Neighbouring
+  features overlap along a shared edge, so a point can fall inside two of
+  them, and an area computed from it is too large. Draw and filter with it;
+  measure and clip with the full-resolution file.

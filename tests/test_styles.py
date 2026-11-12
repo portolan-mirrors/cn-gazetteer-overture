@@ -69,7 +69,17 @@ def check(con, collection: str, src: str, style_path: Path) -> list[str]:
             ).fetchall()
         }
         missing = [b for b in branches if b not in present]
-        unmatched = [v for v in present if v not in branches]
+        # A NULL is absence, not a category, and the fallback colour is the
+        # right rendering for it. Overture leaves `class` null on every
+        # division that is not a locality and on the localities no source
+        # classed, so a match on `class` has to be allowed a fallback. The
+        # count still gets printed, because a fallback that swallows most of
+        # the data is a style that says nothing.
+        nulls = con.execute(
+            f'SELECT count(*) FROM read_parquet(\'{src}\') '
+            f'WHERE "{field}" IS NULL'
+        ).fetchone()[0]
+        unmatched = [v for v in present if v is not None and v not in branches]
         if missing:
             errors.append(
                 f"{name}: match on {field} lists {missing}, "
@@ -80,7 +90,10 @@ def check(con, collection: str, src: str, style_path: Path) -> list[str]:
                 f"{name}: {field} holds {unmatched}, which no branch covers; "
                 "those rows render in the fallback colour"
             )
-        print(f"OK   {name}: match {field}, {len(branches)} branch(es)")
+        print(
+            f"OK   {name}: match {field}, {len(branches)} branch(es), "
+            f"{nulls:,} null row(s) in the fallback"
+        )
         return errors
 
     if expr[0] != "step":

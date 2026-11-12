@@ -77,6 +77,7 @@ from ovcommon import (
     display_path,
     footer_metadata,
     geo_metadata,
+    geom_expr,
     human,
     normalize_name,
     pycountry_version,
@@ -123,9 +124,9 @@ SELECT
   r.area_km2,
   r.bbox                                      AS boundary_bbox,
   r.point                                     AS boundary_point,
-  ST_AsWKB(d.geometry)                        AS division_point,
-  {{xmin: ST_XMin(d.geometry), ymin: ST_YMin(d.geometry),
-    xmax: ST_XMax(d.geometry), ymax: ST_YMax(d.geometry)}} AS division_bbox
+  ST_AsWKB({dgeom})                            AS division_point,
+  {{xmin: ST_XMin({dgeom}), ymin: ST_YMin({dgeom}),
+    xmax: ST_XMax({dgeom}), ymax: ST_YMax({dgeom})}} AS division_bbox
 FROM read_parquet('{division}') d
 LEFT JOIN read_parquet('{division}') p ON d.parent_division_id = p.id
 LEFT JOIN iso3166 i ON d.country = i.alpha_2
@@ -176,9 +177,9 @@ def row_reference_table(con) -> None:
                    '{collection}' AS collection,
                    area_km2,
                    bbox,
-                   ST_AsWKB(ST_PointOnSurface(ST_GeomFromWKB(geometry))) AS point
+                   ST_AsWKB(ST_PointOnSurface({{geom}})) AS point
             FROM read_parquet('{path.as_posix()}')
-            """
+            """.replace("{geom}", geom_expr(con, path))
         )
         frames.append(f"SELECT * FROM ref_{collection}")
     out = WORK / "names_refs.parquet"
@@ -277,13 +278,13 @@ SELECT
   coalesce(boundary_bbox, division_bbox) AS bbox,
   CASE WHEN row_index IS NOT NULL AND alt_of IS NULL THEN {{
     file: 'overture_' || collection || '.parquet',
-    row_group: (row_index // row_group_rows)::INTEGER,
+    row_group: (row_index // rg_rows)::INTEGER,
     row: row_index::INTEGER
   }} END AS geometry_ref,
   CASE WHEN alt_of IS NULL
        THEN coalesce(boundary_point, division_point) END AS geometry
 FROM rows_reduced
-LEFT JOIN (SELECT * FROM row_group_rows) g USING (collection)
+LEFT JOIN row_group_rows g USING (collection)
 ORDER BY name_norm, level, country, feature_id
 """
 
@@ -291,8 +292,8 @@ ORDER BY name_norm, level, country, feature_id
 def write_index(con, *, started: float) -> dict:
     """Stream the sorted rows into the final file with exact row groups."""
     con.execute(
-        "CREATE OR REPLACE TEMP TABLE row_group_rows (collection VARCHAR, "
-        "row_group_rows INTEGER)"
+        "CREATE OR REPLACE TEMP TABLE row_group_rows "
+        "(collection VARCHAR, rg_rows INTEGER)"
     )
     con.executemany(
         "INSERT INTO row_group_rows VALUES (?, ?)", list(ROW_GROUP_ROWS.items())
@@ -475,12 +476,9 @@ def write_manifest(stats: dict, extra: dict, counts: dict) -> None:
     publisher uploads.
     """
     import hashlib
+    from pathlib import Path
 
-    from ovcommon import PUBLISH
-
-    repo_catalog = (
-        __import__("pathlib").Path(__file__).resolve().parents[1] / "catalog" / "names"
-    )
+    repo_catalog = Path(__file__).resolve().parents[1] / "catalog" / "names"
     boundaries = []
     for collection in COLLECTIONS:
         full = boundary_path(collection)
@@ -583,7 +581,6 @@ def write_manifest(stats: dict, extra: dict, counts: dict) -> None:
     out = repo_catalog / "index.json"
     out.write_text(json.dumps(doc, indent=2) + "\n")
     print(f"  manifest: {out} ({out.stat().st_size:,} bytes)")
-    assert PUBLISH.exists()
 
 
 def main(argv: list[str]) -> int:
@@ -605,6 +602,9 @@ def main(argv: list[str]) -> int:
             division=division.as_posix(),
             refs=(WORK / "names_refs.parquet").as_posix(),
             level_case=LEVEL_CASE,
+            dgeom=f"d.{geom_expr(con, division)}".replace(
+                "d.ST_GeomFromWKB(geometry)", "ST_GeomFromWKB(d.geometry)"
+            ),
         )
     )
     total_divisions = con.execute(

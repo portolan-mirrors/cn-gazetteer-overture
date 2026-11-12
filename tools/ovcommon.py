@@ -87,25 +87,40 @@ COLLECTION_LEVEL = {name: SUBTYPE_LEVEL[subs[0]] for name, subs in COLLECTIONS.i
 # tools/build_boundaries.py prints the measurement on every run; the numbers
 # behind these constants are in catalog/*/README.md.
 ROW_GROUP_ROWS = {
-    "country": 2,
-    "region": 16,
-    "county": 128,
-    "localadmin": 256,
-    "locality": 4096,
+    "country": 8,
+    "region": 26,
+    "county": 96,
+    "localadmin": 240,
+    "locality": 960,
 }
 
 # The display-simplified files hold the same rows in the same order and the
 # same groups, so a consumer reads row i of either file from group i // n.
 DISPLAY_ROW_GROUP_ROWS = ROW_GROUP_ROWS
 
-# Simplification tolerance in degrees per collection, then an outward buffer of
-# the same size. Chosen so a display feature lands in the low single-digit KB.
-# The buffer is what makes the simplified shape a superset of the true one; see
-# tools/build_display.py.
+# Display simplification. The tolerance is per feature, not per collection:
+#
+#     tol = least(SIMPLIFY_TOLERANCE[collection],
+#                 bbox_diagonal * SIMPLIFY_SHARE)
+#
+# and the outward buffer uses the same value. A single absolute tolerance
+# cannot serve both Russia and Saint-Barthélemy, and the measurement that
+# settled it is in catalog/country/README.md: at a flat 0.03 degrees,
+# Saint-Barthélemy's display polygon covered 81.6% of its true area, because
+# the tolerance was most of the island's width. Scaling by the feature's own
+# extent gives 0 features below 99% containment at every level.
+#
+# SIMPLIFY_SHARE is the fraction of a feature's own bbox diagonal the outline
+# may move. 0.4% was measured as the largest share that keeps every feature of
+# every collection above 99% containment.
+SIMPLIFY_SHARE = 0.004
+
+# The per-collection ceiling, which binds only for features larger than
+# SIMPLIFY_TOLERANCE / SIMPLIFY_SHARE degrees across.
 SIMPLIFY_TOLERANCE = {
-    "country": 0.01,
-    "region": 0.005,
-    "county": 0.002,
+    "country": 0.03,
+    "region": 0.01,
+    "county": 0.004,
     "localadmin": 0.002,
     "locality": 0.0005,
 }
@@ -195,6 +210,104 @@ def pycountry_version() -> str:
     import pycountry
 
     return getattr(pycountry, "__version__", "unknown")
+
+
+def copy_ordered(con, sql: str, out: Path) -> None:
+    """Run an ORDER BY query and write the result to one Parquet file in order.
+
+    ``preserve_insertion_order`` is forced on for the write. The default
+    connection turns it off, which is right for an unordered aggregate and
+    wrong here: a parallel single-file write may emit batches out of order,
+    and the row order of a boundary file is load-bearing. The search index's
+    ``geometry_ref`` names a row number in it, and the display companion has
+    to hold the same rows at the same offsets.
+
+    The intermediate is written at zstd level 3 rather than the publishing
+    level, because it is read once and deleted.
+    """
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.unlink(missing_ok=True)
+    con.execute("SET preserve_insertion_order = true;")
+    try:
+        con.execute(
+            f"COPY ({sql}) TO '{out.as_posix()}' "
+            "(FORMAT parquet, COMPRESSION zstd, COMPRESSION_LEVEL 3)"
+        )
+    finally:
+        con.execute("SET preserve_insertion_order = false;")
+
+
+def stream_write(
+    src: Path,
+    out: Path,
+    *,
+    row_group_rows: int,
+    footer_meta: dict[bytes, bytes],
+    batch_rows: int | None = None,
+    transform=None,
+    sorting_columns=None,
+):
+    """Rewrite a Parquet file with exact row groups, a batch at a time.
+
+    The whole table is never held in memory. That is not only thrift: DuckDB's
+    Arrow appender refuses a binary column whose offsets exceed 2 GiB, which
+    the locality geometry column does on its own, and streaming avoids the
+    limit rather than switching to 64-bit offsets and changing the published
+    column types.
+
+    ``batch_rows`` is rounded down to a multiple of ``row_group_rows``, so
+    every group written is exactly full and a row number alone tells a
+    consumer which group a row is in.
+    """
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    if batch_rows is None:
+        batch_rows = row_group_rows * max(1, 65_536 // row_group_rows)
+    batch_rows = max(row_group_rows, (batch_rows // row_group_rows) * row_group_rows)
+    reader = pq.ParquetFile(src)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.unlink(missing_ok=True)
+    writer = None
+    try:
+        for batch in reader.iter_batches(batch_size=batch_rows):
+            table = pa.Table.from_batches([batch])
+            if transform is not None:
+                table = transform(table)
+            if writer is None:
+                schema = table.schema.with_metadata(footer_meta)
+                writer = pq.ParquetWriter(
+                    out,
+                    schema,
+                    compression="zstd",
+                    compression_level=ZSTD_LEVEL,
+                    write_statistics=True,
+                    write_page_index=True,
+                    version="2.6",
+                    sorting_columns=sorting_columns,
+                )
+            writer.write_table(table.cast(writer.schema), row_group_size=row_group_rows)
+    finally:
+        if writer is not None:
+            writer.close()
+    return pq.ParquetFile(out).metadata
+
+
+def geom_expr(con, path: Path, column: str = "geometry") -> str:
+    """A SQL expression that is a DuckDB GEOMETRY, whatever the file holds.
+
+    DuckDB recognizes the GeoParquet metadata it wrote itself and hands back a
+    GEOMETRY column. It does not always recognize metadata PyArrow wrote, and
+    then the same column arrives as a BLOB of WKB. Both happen in this
+    pipeline -- the staged files come from DuckDB and the published files from
+    PyArrow -- so the expression is chosen from the column's actual type
+    rather than assumed.
+    """
+    rel = con.sql(f"SELECT {column} FROM read_parquet('{path.as_posix()}') LIMIT 0")
+    kind = str(rel.types[0]).upper()
+    if kind.startswith("GEOMETRY"):
+        return column
+    return f"ST_GeomFromWKB({column})"
 
 
 def staged_area(collection: str) -> Path:
