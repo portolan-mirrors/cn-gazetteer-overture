@@ -372,7 +372,6 @@ def prominent_index_entry() -> dict | None:
         )
         return None
     entry = parquet_entry(bp.OUT, f"./{bp.OUT.name}")
-    md = pq.ParquetFile(bp.OUT).metadata
     by_level = pq.read_table(bp.OUT, columns=["level", "alt_of"])
     levels = by_level.column("level").to_pylist()
     alts = by_level.column("alt_of").to_pylist()
