@@ -34,7 +34,23 @@ something.
 
 ## Accepted deviations
 
-None.
+None. `rashid 0.1.8` reports 0 errors and 0 warnings across the seven STAC
+objects.
+
+## Informational findings, and the decisions behind them
+
+These are `info` severity, so they do not fail the gate. They are recorded
+because rashid asks for a decision and silence is not one.
+
+| Rule | Where | Decision |
+|---|---|---|
+| PTL-PRO-002 | all six collections | No `rel:"canonical"` link. The rule asks for one **when the upstream publishes its own STAC catalog**. Overture does not: the divisions theme is published as Parquet on S3 and Azure Blob with documentation at docs.overturemaps.org, and there is no STAC object to point at. The `via` link names the theme guide and the `cite-as` link names Overture instead. Revisit if Overture publishes STAC. |
+
+`portolan check` additionally reports that 17 registered assets are missing
+from disk. That is the publish boundary working as intended: the GeoParquet
+and PMTiles files live in object storage and never enter git, and the STAC
+references them by the public URL that `catalog.publish.yaml` builds. Run the
+check against the published tree to see them resolve.
 
 <!--
 When you accept one, add a row and a section explaining it, like this:
@@ -48,6 +64,64 @@ neither.
 -->
 
 ## Validator workarounds
+
+### gpq crashes on a GeoParquet file with a null geometry value
+
+`gpq validate` panics with a nil-pointer dereference on
+`catalog/names/overture_division_names.parquet`:
+
+```
+panic: runtime error: invalid memory address or nil pointer dereference
+github.com/paulmach/orb/geojson.(*Geometry).Geometry(0x0?)
+github.com/planetlabs/gpq/internal/validator.(*Validator).Report(...)
+  internal/validator/validator.go:242
+```
+
+The file is not at fault. The search index carries a point on each primary row
+and **null on each alternative-name row**, because an alternative spelling
+describes the division its primary row already carries a point for, and
+repeating the point on 2,031,617 rows cost about 40 MB and said nothing new.
+GeoParquet permits a nullable geometry column; nothing in the specification
+requires a value on every row.
+
+Minimal reproduction, three rows and no catalog involved:
+
+```python
+import pyarrow as pa, pyarrow.parquet as pq, json, struct
+
+point = struct.pack("<BIdd", 1, 1, 10.0, 20.0)
+geo = json.dumps({
+    "version": "1.1.0", "primary_column": "geometry",
+    "columns": {"geometry": {"encoding": "WKB", "geometry_types": ["Point"]}},
+}).encode()
+
+for name, values in [("with-null", [point, None, point]),
+                     ("no-null", [point, point, point])]:
+    table = pa.table({"geometry": pa.array(values, pa.binary())})
+    pq.write_table(table.replace_schema_metadata({b"geo": geo}),
+                   f"{name}.parquet")
+```
+
+`gpq validate no-null.parquet` passes. `gpq validate with-null.parquet`
+panics. The crash is in the data-scanning path, so:
+
+```bash
+gpq validate --metadata-only catalog/names/overture_division_names.parquet
+```
+
+passes all 16 metadata and schema checks, and that is what this repository
+runs for the search index. The ten other GeoParquet files in the catalog carry
+a geometry on every row and pass the full `gpq validate`, 20 checks each.
+
+The file is otherwise readable: GeoPandas reads all 5,604,413 rows and reports
+2,031,617 null geometries, and the hyparquet client in
+`tools/verify_index_hyparquet.mjs` reads it as a browser would.
+
+**This is an upstream bug and belongs upstream**, at
+<https://github.com/planetlabs/gpq>. It is not reported there yet; the
+reproduction above is what to file. Nothing in this catalog works around it,
+because working around it would mean publishing 40 MB of duplicate points to
+satisfy a validator rather than a specification.
 
 ### stac-check reports a dialect crash on every collection
 

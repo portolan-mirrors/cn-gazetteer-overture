@@ -1,0 +1,426 @@
+{
+  "type": "Collection",
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json",
+    "https://stac-extensions.github.io/table/v1.2.0/schema.json",
+    "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+    "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json"
+  ],
+  "id": "region",
+  "title": "Overture Divisions - Region Boundaries",
+  "description": "**EXPERIMENTAL.** The schema of this collection may change without notice, and the Source Cooperative repository that serves it is unlisted. 3,929 first-level subdivisions worldwide, across 226 countries: what Overture calls a region and defines as the 'largest sub-country administrative unit', so states, provinces, governorates and cantons. The `local_type` column carries the word each country actually uses. One country is divided into as many as 212 of them. GeoParquet 1.1 with bbox covering metadata, Hilbert-ordered, with a display-simplified companion for drawing. Read the [agent guide](AGENTS.md). **ODbL share-alike applies.** A database derived from this collection has to be released under ODbL as well, and an application that shows it has to display the attribution: *\u00a9 OpenStreetMap contributors. Available under the [Open Database License](https://www.openstreetmap.org/copyright).* The [CC-BY-4.0 counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog) carries no such obligation and less coverage.",
+  "license": "ODbL-1.0",
+  "keywords": [
+    "experimental",
+    "administrative boundaries",
+    "regions",
+    "states",
+    "provinces",
+    "Overture Maps",
+    "divisions",
+    "GERS",
+    "ODbL",
+    "subnational",
+    "GeoParquet",
+    "PMTiles"
+  ],
+  "providers": [
+    {
+      "name": "Overture Maps Foundation",
+      "description": "Produces the divisions theme by conflating OpenStreetMap with geoBoundaries, Esri Community Maps and Land Information New Zealand, and publishes it under ODbL with a stable GERS identifier on every feature.",
+      "roles": [
+        "producer",
+        "licensor"
+      ],
+      "url": "https://overturemaps.org/"
+    },
+    {
+      "name": "OpenStreetMap contributors",
+      "description": "The primary source of the divisions theme, and the reason the theme carries ODbL share-alike.",
+      "roles": [
+        "producer",
+        "licensor"
+      ],
+      "url": "https://www.openstreetmap.org/copyright"
+    },
+    {
+      "name": "Portolan Mirrors",
+      "description": "Republishes the Overture divisions release as cloud-native GeoParquet, a display-simplified companion, PMTiles and a multilingual name search index. Adds no divisions and changes no attribute values.",
+      "roles": [
+        "processor",
+        "host"
+      ],
+      "url": "https://github.com/portolan-mirrors/cn-geocoder-overture"
+    }
+  ],
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -59.461292,
+          180.0,
+          83.137086
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2026-10-21T00:00:00Z",
+          "2026-10-21T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "updated": "2026-11-12T00:00:00Z",
+  "table:primary_geometry": "geometry",
+  "table:row_count": 3929,
+  "table:columns": [
+    {
+      "name": "id",
+      "type": "string",
+      "description": "Attested. The GERS identifier of the *division area* feature, the polygon row Overture published. Globally unique and stable across releases while the feature keeps its identity. This is not the key the search index points at; `division_id` is. Overture's schema for the property is at [division_area](https://docs.overturemaps.org/schema/reference/divisions/division_area)."
+    },
+    {
+      "name": "division_id",
+      "type": "string",
+      "description": "Attested. The GERS identifier of the division this polygon belongs to, which Overture defines as 'Division ID of the division this area belongs to'. **This is the join key**: it is what the names collection publishes as `feature_id`, and it is unique in this file because the build keeps only the one `class = 'land'` polygon per division. Join on this, never on `id`."
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "description": "Attested. `names.primary` of the division, byte for byte as Overture published it. Overture's own display name, in whichever language it considers primary for that place, which is usually but not always the local one. The names collection carries this string plus every alternative spelling Overture lists, each folded for searching."
+    },
+    {
+      "name": "subtype",
+      "type": "string",
+      "description": "Attested. Overture's placetype for the division. In this file: 3,929 region. The full list and the meaning of each value are in the [divisions guide](https://docs.overturemaps.org/guides/divisions)."
+    },
+    {
+      "name": "country",
+      "type": "string",
+      "description": "Derived. ISO 3166-1 **alpha-3**, mapped from Overture's alpha-2 `country` property through the official ISO 3166-1 table packaged with pycountry. The mapping exists so that this catalog and the CC-BY [geoBoundaries mirror](https://source.coop/portolan-mirrors/geoboundaries-catalog) can be filtered with one code system. Overture's own alpha-2 value is kept unchanged in `country_iso2`; where Overture uses a synthetic code with no alpha-3 equivalent, that code is carried through here as well."
+    },
+    {
+      "name": "country_iso2",
+      "type": "string",
+      "description": "Attested. Overture's `country` property, unchanged: the ISO 3166-1 alpha-2 code of 'the country or country-like entity that this division represents or belongs to'. For a division that has no country code of its own, Overture fills it from the first ancestor that has one, so a locality in Puerto Rico carries PR."
+    },
+    {
+      "name": "region",
+      "type": "string",
+      "description": "Attested. The ISO 3166-2 principal subdivision code of 'the subdivision-like entity this division represents or belongs to', inherited from the nearest ancestor that has one. Omitted for a country. Overture's example: New York City carries US-NY."
+    },
+    {
+      "name": "local_type",
+      "type": "string",
+      "description": "Derived from an attested column. Overture publishes `local_type` as a map of language code to the locally used word for the subtype, because, in its own example, Quebec has subtype `region` but is locally a province and Yukon is a territory. This file flattens the map to one string: the entry keyed `local` where there is one, otherwise the first entry. Use the Overture release itself if you need every localized form."
+    },
+    {
+      "name": "admin_level",
+      "type": "int32",
+      "description": "Attested. Overture's administrative level, which it requires only for country, dependency, macroregion, region, macrocounty and county, and which it says generally aligns with the OpenStreetMap `admin_level` tag. Null for localadmin and locality. It is not the same number as the `level` the names collection publishes; that one is this catalog's own 0-to-4 mapping of the subtype."
+    },
+    {
+      "name": "parent_division_id",
+      "type": "string",
+      "description": "Attested. The GERS id of the division's parent, 'as seen from the default political perspective'. Not present on a country. Join it to `division_id` in the collection one level up, which is what `parent_name` below was built from."
+    },
+    {
+      "name": "parent_name",
+      "type": "string",
+      "description": "Derived. `names.primary` of the parent division, looked up through `parent_division_id` in a self-join over the whole Overture `type=division` release, so it resolves even when the parent sits in a subtype this catalog does not carry. It is what lets a result list say which of the many places called Springfield is meant."
+    },
+    {
+      "name": "parent_subtype",
+      "type": "string",
+      "description": "Derived. The parent division's subtype, from the same self-join. A locality's parent is usually a localadmin or a county, and knowing which tells a reader how far up `parent_name` reaches."
+    },
+    {
+      "name": "country_units",
+      "type": "int32",
+      "description": "Derived. How many rows of this file share this row's `country`, so how finely Overture divides that country at this level. Counted over this file only, by a window function in tools/build_boundaries.py."
+    },
+    {
+      "name": "population",
+      "type": "int32",
+      "description": "Attested. 'Population of the division', as Overture publishes it. Sparse: Overture carries it where a source supplied one and leaves it null otherwise, and it states no vintage per value, so treat it as a relevance weight rather than as a census figure."
+    },
+    {
+      "name": "wikidata",
+      "type": "string",
+      "description": "Attested. The division's Wikidata QID where Overture has one. Useful as a second identifier to join this catalog to anything keyed on Wikidata."
+    },
+    {
+      "name": "name_langs",
+      "type": "int32",
+      "description": "Derived. How many language codes appear in the division's `names.common` map, counted before this catalog's deduplication. It is the single number that says what this ODbL catalog buys over its CC-BY counterpart: countries average 202, regions 37, counties 8, localities 2.5. The names collection indexes the distinct spellings behind this count."
+    },
+    {
+      "name": "area_km2",
+      "type": "double",
+      "description": "Derived. Geodesic area of the land polygon in square kilometres on the WGS 84 ellipsoid, from DuckDB's `ST_Area_Spheroid` with the coordinates flipped to latitude-first, which that function requires. It is the area of the `class = 'land'` polygon, so it excludes territorial waters and is smaller than a figure quoted for the maritime extent."
+    },
+    {
+      "name": "perimeter_km",
+      "type": "double",
+      "description": "Derived. Geodesic perimeter of the land polygon in kilometres on the WGS 84 ellipsoid."
+    },
+    {
+      "name": "compactness",
+      "type": "double",
+      "description": "Derived. Polsby-Popper ratio, 4*pi*area/perimeter^2. 1.0 for a circle, falling towards 0 as an outline gets long or fragmented, so it separates island groups and river-defined divisions from blocky inland ones. Computed on the full-resolution geometry in this file, not on the display-simplified companion."
+    },
+    {
+      "name": "vertices",
+      "type": "int32",
+      "description": "Derived. `ST_NPoints` of the full-resolution geometry. It is how to predict what a feature costs to fetch and draw, and it is the number the display-simplified companion exists to reduce."
+    },
+    {
+      "name": "version",
+      "type": "int32",
+      "description": "Attested. Overture's version counter for the feature, incremented when the feature changes between releases. Compare it, not the geometry, to find what moved since the last release."
+    },
+    {
+      "name": "bbox",
+      "type": "struct",
+      "description": "GeoParquet 1.1 bbox covering struct, with xmin, ymin, xmax and ymax as doubles in CRS84, declared in the file's `geo` metadata. A reader prunes row groups on it without decoding any WKB, and it is also the extent to fly a map to after a search hit."
+    },
+    {
+      "name": "geometry",
+      "type": "geometry",
+      "description": "Attested, unchanged. Polygon or MultiPolygon as WKB in CRS84 (longitude, latitude on WGS 84), the `class = 'land'` division area: Overture's land-clipped, non-maritime outline, which it describes as intended for 'map rendering, cartographic display, and similar purposes'. Nothing is reprojected and no coordinate is moved. The `maritime` polygon Overture also publishes for coastal divisions is not carried here."
+    }
+  ],
+  "assets": {
+    "data": {
+      "href": "./overture_region.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Region Boundaries, full-resolution GeoParquet 1.1 (152 row groups of 26 rows, zstd, page index, Hilbert order)",
+      "roles": [
+        "data"
+      ],
+      "file:size": 242197071,
+      "file:checksum": "122056e949a69c699202a9832510436c10f7b85dada9c0a690d33fdb0a361c6da519",
+      "table:primary_geometry": "geometry"
+    },
+    "display": {
+      "href": "./overture_region_display.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Region Boundaries, display-simplified GeoParquet 1.1 (6.2 KiB per feature)",
+      "roles": [
+        "data",
+        "visual",
+        "overview"
+      ],
+      "file:size": 25099168,
+      "file:checksum": "12209bb679decb3821ba8fd99f700b6f6461f37811468040d2e7f788a6b483998444",
+      "table:primary_geometry": "geometry",
+      "description": "The same rows in the same order and the same row groups as the full file, simplified with ST_SimplifyPreserveTopology and then buffered **outward** by the same amount, so the shape always contains the true boundary rather than cutting corners off it. The tolerance is per feature, 0.4% of that feature's own bounding-box diagonal capped at 0.01 degrees, which here ranged from 3.93e-05 to 0.01 degrees. Verified per feature: 3,632 of 3,929 contain their full-resolution polygon completely, 0 fall below 99% of its area, and the worst is 0.9983. Draw it, filter with it, and measure with the full file."
+    },
+    "pmtiles": {
+      "href": "./region.pmtiles",
+      "type": "application/vnd.pmtiles",
+      "title": "Region Boundaries, vector tiles to zoom 8",
+      "roles": [
+        "visual",
+        "data"
+      ],
+      "file:size": 20187884,
+      "file:checksum": "12205ed712e594180186d7b33ba46d91d555bc30a8e3536761f9fa6193e87fcb5df3",
+      "pmtiles:layers": [
+        "region"
+      ]
+    },
+    "style-default": {
+      "href": "./styles/default.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Languages with a name for this region",
+      "roles": [
+        "style",
+        "default"
+      ],
+      "file:size": 987,
+      "file:checksum": "12204633ca232a6792292e86e5177358328dbb0e144d3f48aaa28d77a10778fbbe6e"
+    },
+    "style-area": {
+      "href": "./styles/area.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Land area",
+      "roles": [
+        "style"
+      ],
+      "file:size": 1003,
+      "file:checksum": "12201812420784eef65ac7a09a86e6c155444e57279ef81a0c9ddee9eb6a208b7fb0"
+    },
+    "style-units-per-country": {
+      "href": "./styles/units-per-country.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Regions in this country",
+      "roles": [
+        "style"
+      ],
+      "file:size": 942,
+      "file:checksum": "1220ab9d6fca977fda148ef563f81672400667a26214c01c2d41d90b8d870ba1899d"
+    },
+    "style-population": {
+      "href": "./styles/population.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Population",
+      "roles": [
+        "style"
+      ],
+      "file:size": 1018,
+      "file:checksum": "122054ecc4ba624642164de931f848bba8d5f1ecf7dd782ae6a9121feaefab283615"
+    },
+    "overture-division-schema": {
+      "href": "../_assets/overture/division.schema.yaml",
+      "type": "application/yaml",
+      "title": "Overture type=division JSON Schema, as published",
+      "roles": [
+        "metadata",
+        "source"
+      ],
+      "description": "Overture's own schema for the division feature type, copied from OvertureMaps/schema. Every column description in this collection marked attested is quoted or paraphrased from it.",
+      "file:size": 10785,
+      "file:checksum": "1220c4efe220e8afd7869a6474bfcacbeab6303d83fc550255cabc097b28bc304946"
+    },
+    "overture-division-area-schema": {
+      "href": "../_assets/overture/division_area.schema.yaml",
+      "type": "application/yaml",
+      "title": "Overture type=division_area JSON Schema, as published",
+      "roles": [
+        "metadata",
+        "source"
+      ],
+      "description": "Overture's own schema for the division_area feature type, which is where the land and maritime class definitions and the is_land flag come from.",
+      "file:size": 3577,
+      "file:checksum": "12200975dc2ada8b5dd6012e5c74f5bb04af70aa887b749cbd7515bcb40612466ec4"
+    },
+    "overture-attribution": {
+      "href": "../_assets/overture/divisions-attribution.md",
+      "type": "text/markdown",
+      "title": "Overture attribution requirements for divisions, verbatim",
+      "roles": [
+        "metadata",
+        "license"
+      ],
+      "description": "The divisions block of Overture's attribution page, copied verbatim on 2026-11-12. It is the evidence behind this collection's license and required attribution.",
+      "file:size": 1749,
+      "file:checksum": "1220a8d266f78bf28ab0fd2858586e49643b1146bb70c84da09eb9e084d95a492dc3"
+    },
+    "thumbnail": {
+      "href": "./region.thumb.png",
+      "type": "image/png",
+      "title": "Region Boundaries, rendered from the default style",
+      "roles": [
+        "thumbnail"
+      ],
+      "file:size": 162526,
+      "file:checksum": "1220d6ff44cf2c7f4609040e3975432ce4f113264a4832c38cd481c72925c48b97e9"
+    }
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../catalog.json",
+      "type": "application/json",
+      "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json",
+      "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)"
+    },
+    {
+      "rel": "describedby",
+      "href": "./README.md",
+      "type": "text/markdown",
+      "title": "Collection README"
+    },
+    {
+      "rel": "agents",
+      "href": "./AGENTS.md",
+      "type": "text/markdown",
+      "title": "Collection agent guide"
+    },
+    {
+      "rel": "via",
+      "href": "https://docs.overturemaps.org/guides/divisions",
+      "type": "text/html",
+      "title": "Overture Maps divisions theme guide (upstream source)"
+    },
+    {
+      "rel": "describedby",
+      "href": "https://docs.overturemaps.org/schema/reference/divisions/division",
+      "type": "text/html",
+      "title": "Overture division schema reference"
+    },
+    {
+      "rel": "cite-as",
+      "href": "https://overturemaps.org/",
+      "type": "text/html",
+      "title": "Overture Maps Foundation, overturemaps.org"
+    },
+    {
+      "rel": "license",
+      "href": "https://opendatacommons.org/licenses/odbl/",
+      "type": "text/html",
+      "title": "Open Database License (ODbL) v1.0"
+    },
+    {
+      "rel": "license",
+      "href": "https://docs.overturemaps.org/attribution/",
+      "type": "text/html",
+      "title": "Overture attribution and licensing requirements"
+    },
+    {
+      "rel": "related",
+      "href": "https://source.coop/portolan-mirrors/geoboundaries-catalog",
+      "type": "text/html",
+      "title": "geoBoundaries CGAZ, the CC-BY-4.0 counterpart catalog"
+    },
+    {
+      "rel": "related",
+      "href": "../country/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Country and Dependency Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../county/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - County Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../localadmin/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Local Administrative Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../locality/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Locality Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../names/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions Multilingual Name Search Index"
+    },
+    {
+      "rel": "pmtiles",
+      "href": "./region.pmtiles",
+      "type": "application/vnd.pmtiles",
+      "title": "Region Boundaries, vector tiles",
+      "pmtiles:layers": [
+        "region"
+      ]
+    }
+  ]
+}

@@ -39,6 +39,7 @@ from ovcommon import (
     boundary_path,
     display_path,
     human,
+    wrap_markdown,
     pmtiles_path,
 )
 from build_pmtiles import MAX_ZOOM, NAMES_MAX_ZOOM
@@ -90,6 +91,12 @@ class Q:
     note: str = ""
     limit: int = 12
     tables: dict[str, str] = field(default_factory=dict)
+
+
+def listing(rows: list[tuple[str, str]]) -> list[str]:
+    """A fixed-width two-column listing for a fenced block."""
+    width = max(len(name) for name, _ in rows)
+    return [f"{name.ljust(width)}  {value}" for name, value in rows]
 
 
 def table_ref(path: Path, *, public: bool) -> str:
@@ -477,18 +484,18 @@ def boundary_agents(con, collection: str) -> str:
         f"**{level}**. Public root: `{PUBLIC}/catalog.json`",
         "",
         "```",
-        f"{collection}/{full.name}"
-        + " " * max(1, 42 - len(collection) - len(full.name))
-        + f"{human(full.stat().st_size)}, "
-        f"{md.num_rows:,} rows, {md.num_row_groups:,} row groups of "
-        f"{ROW_GROUP_ROWS[collection]:,}",
-        f"{collection}/{disp.name}"
-        + " " * max(1, 42 - len(collection) - len(disp.name))
-        + f"{human(disp.stat().st_size)}, same rows, same order, same groups",
-        f"{collection}/{tiles.name}"
-        + " " * max(1, 42 - len(collection) - len(tiles.name))
-        + f"{human(tiles.stat().st_size)}, zoom 0-{MAX_ZOOM[collection]}, "
-        f'layer "{collection}"',
+        *listing([
+            (f"{collection}/{full.name}",
+             f"{human(full.stat().st_size)}, {md.num_rows:,} rows, "
+             f"{md.num_row_groups:,} row groups of "
+             f"{ROW_GROUP_ROWS[collection]:,}"),
+            (f"{collection}/{disp.name}",
+             f"{human(disp.stat().st_size)}, same rows, same order, "
+             "same groups"),
+            (f"{collection}/{tiles.name}",
+             f"{human(tiles.stat().st_size)}, "
+             f"zoom 0-{MAX_ZOOM[collection]}, layer \"{collection}\""),
+        ]),
         "```",
         "",
         "Geometry is Overture's `class = 'land'` division area: its "
@@ -618,15 +625,17 @@ def names_agents(con) -> str:
         f"Public root: `{PUBLIC}/catalog.json`",
         "",
         "```",
-        f"names/{NAMES_PATH.name}   {human(NAMES_PATH.stat().st_size)}, "
-        f"{md.num_rows:,} rows, {md.num_row_groups:,} row groups of "
-        f"{NAMES_ROW_GROUP_ROWS:,}",
-        f"names/index.json                      "
-        f"{(CATALOG / 'names' / 'index.json').stat().st_size:,} bytes, "
-        "the manifest to fetch first",
-        f"names/{tiles.name}                        "
-        f"{human(tiles.stat().st_size)}, zoom 0-{NAMES_MAX_ZOOM}, "
-        'layer "names"',
+        *listing([
+            (f"names/{NAMES_PATH.name}",
+             f"{human(NAMES_PATH.stat().st_size)}, {md.num_rows:,} rows, "
+             f"{md.num_row_groups:,} row groups of {NAMES_ROW_GROUP_ROWS:,}"),
+            ("names/index.json",
+             f"{(CATALOG / 'names' / 'index.json').stat().st_size:,} bytes, "
+             "the manifest to fetch first"),
+            (f"names/{tiles.name}",
+             f"{human(tiles.stat().st_size)}, zoom 0-{NAMES_MAX_ZOOM}, "
+             'layer "names"'),
+        ]),
         "```",
         "",
         f"{manifest['primary_rows']:,} primary rows and "
@@ -915,13 +924,13 @@ def main() -> int:
     written = []
     for collection in COLLECTIONS:
         path = CATALOG / collection / "AGENTS.md"
-        path.write_text(boundary_agents(con, collection))
+        path.write_text(wrap_markdown(boundary_agents(con, collection)))
         written.append(path)
     path = CATALOG / "names" / "AGENTS.md"
-    path.write_text(names_agents(con))
+    path.write_text(wrap_markdown(names_agents(con)))
     written.append(path)
     path = CATALOG / "AGENTS.md"
-    path.write_text(catalog_agents(con))
+    path.write_text(wrap_markdown(catalog_agents(con)))
     written.append(path)
     con.close()
     for p in written:

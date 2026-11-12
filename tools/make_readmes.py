@@ -34,6 +34,7 @@ from ovcommon import (
     boundary_path,
     display_path,
     human,
+    wrap_markdown,
     pmtiles_path,
 )
 from build_pmtiles import MAX_ZOOM, NAMES_MAX_ZOOM
@@ -970,16 +971,16 @@ def main() -> int:
     written = []
     for collection in COLLECTIONS:
         path = CATALOG / collection / "README.md"
-        path.write_text(boundary_readme(collection, docs, cont))
+        path.write_text(wrap_markdown(boundary_readme(collection, docs, cont)))
         written.append(path)
     path = CATALOG / "names" / "README.md"
-    path.write_text(names_readme(docs))
+    path.write_text(wrap_markdown(names_readme(docs)))
     written.append(path)
     path = CATALOG / "README.md"
-    path.write_text(catalog_readme(docs))
+    path.write_text(wrap_markdown(catalog_readme(docs)))
     written.append(path)
     path = CATALOG / "llms.txt"
-    path.write_text(llms_txt(docs))
+    path.write_text(wrap_markdown(llms_txt(docs)))
     written.append(path)
     for p in written:
         print(f"  {p.relative_to(REPO)}: {p.stat().st_size:,} bytes")

@@ -1,32 +1,169 @@
-# Example Catalog
+# EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)
 
-TODO(setup): replace this file. It is the front door to the published catalog,
-the page people land on at the public base URL. It is not the same document as
-the README in the repository root, which is never published.
+> [!WARNING]
+> **This catalog is EXPERIMENTAL.** The schema may change without notice, the
+> Source Cooperative repository that serves it is unlisted, and the column
+> contract it publishes is still being negotiated with its consumer. Pin the
+> `catalog_version` in [names/index.json](names/index.json) if you depend on
+> it, and expect to rebuild.
 
-## What is here
+Overture Maps divisions, release `2026-10-21.0`, republished as cloud-native
+GeoParquet and PMTiles for a browser geocoder: five boundary levels from
+country down to locality, each with a display-simplified companion, and a
+multilingual name search index over all of them.
 
-TODO(setup): the datasets, in one paragraph. Say what each collection covers,
-the area and the time range, and what a reader can do with it.
+This is a **mirror**. [Overture Maps Foundation](https://overturemaps.org/)
+produces the data and remains the authoritative source. This catalog adds no
+division and changes no coordinate.
 
-## License
+## Which catalog should you use?
 
-TODO(setup): the SPDX identifier, or `other` with a link to the terms. Say who
-holds the rights and what a reuser has to attribute.
+There are two, built to the same column contract, and the choice is about
+licence and coverage rather than quality.
+
+| | this catalog | [geoboundaries-catalog](https://source.coop/portolan-mirrors/geoboundaries-catalog) |
+|---|---|---|
+| Licence | **ODbL-1.0**, share-alike | CC-BY-4.0, attribution only |
+| Status | **experimental**, unlisted | the default |
+| Levels | country, region, county, localadmin, **locality** | ADM0, ADM1, ADM2 |
+| City and village boundaries | yes | no |
+| Multilingual names | yes, 2,031,617 alternative spellings | no |
+| Stable feature key | Overture GERS id | geoBoundaries `shapeID` |
+| Index size | 407.7 MB, range-request path | 3.6 MB, loads whole |
+
+**Take the CC-BY one unless you need what this one adds.** Share-alike is a
+real obligation: a database you derive from this catalog has to be offered
+under ODbL too. A geocoder widget can be pointed at either index by changing
+one URL, so the decision is reversible and belongs to whoever ships the
+application, not to whoever builds it.
+
+## What it publishes
+
+| collection | level | rows | GeoParquet | display | PMTiles |
+|---|---|---|---|---|---|
+| [`country`](country/collection.json) | 0 | 272 | 51.4 MB | 5.2 MB | 2.5 MB |
+| [`region`](region/collection.json) | 1 | 3,929 | 231.0 MB | 23.9 MB | 19.3 MB |
+| [`county`](county/collection.json) | 2 | 38,937 | 649.4 MB | 112.5 MB | 88.7 MB |
+| [`localadmin`](localadmin/collection.json) | 3 | 21,502 | 142.6 MB | 53.8 MB | 42.4 MB |
+| [`locality`](locality/collection.json) | 4 | 556,094 | 1.2 GB | 870.7 MB | 682.8 MB |
+| [`names`](names/collection.json) | 0-4 | 5,604,413 | 407.7 MB | - | 146.3 MB |
+
+About 4.7 GB in all. The five boundary levels are **not** a seamless coverage
+the way a composite is: Overture publishes a division where a division exists,
+so a country with no localadmin level simply has no rows at that level. The
+[`names`](names/collection.json) index is the only complete view, and it covers
+3,572,796 divisions including the millions Overture publishes as a point with
+no boundary at all.
+
+## How a geocoder widget uses this
+
+The end-to-end path this catalog was shaped for, as the cloud-native map
+widgets project implements it:
+
+1. **Focus.** The search box is focused. The client fetches
+   [names/index.json](names/index.json), about a kilobyte, and learns the
+   index's size, row group count, `catalog_version` and required attribution.
+   It renders the attribution immediately, because ODbL requires it whether or
+   not a search happens.
+2. **Index load.** The index is 407.7 MB, so the client takes the
+   **range-request path**: one exactly-sized 2,053,386-byte tail request for
+   the footer, then a binary search over the row group statistics on
+   `name_norm`.
+3. **Keystrokes.** Each typed prefix is folded with the same rule the index
+   used and resolved from a median of 1 row group of about 473.6 KB. Results
+   arrive as a mixture of primary and alternative-spelling rows, in any
+   language; the client dedupes by `feature_id` and ranks on `level`,
+   `population`, `prominence`, `name_dupes` and whether the bbox intersects the
+   current viewport.
+4. **Selection, drawn instantly.** The chosen row carries a GERS `feature_id`,
+   a bbox to fly to, a point to mark, and an advisory `geometry_ref` of file,
+   row group and row. One range read of the **display** file at that row group
+   returns a few kilobytes of outward-buffered outline, which draws before the
+   camera has finished moving.
+5. **Full resolution in the background.** The same `geometry_ref` indexes the
+   full-resolution file, because the two hold the same rows in the same groups.
+   The client swaps the geometry in when it arrives, and verifies that the
+   `division_id` it decoded equals the `feature_id` it asked for before it
+   trusts either.
+6. **The boundary does work.** That polygon is then the spatial filter for any
+   other cloud-native dataset: a GeoParquet of field boundaries, a COG, a
+   PMTiles archive. Filter with the display geometry, which over-selects on
+   purpose, and clip with the full-resolution one.
+
+The consumption recipes for each step are in the collection agent guides,
+starting at [names/AGENTS.md](names/AGENTS.md). The equivalent guides in the
+[CC-BY
+sibling](https://source.coop/portolan-mirrors/geoboundaries-catalog/names)
+describe the same contract against the smaller index.
+
+## Read these first
+
+- [AGENTS.md](AGENTS.md): the collections, the join keys, and the traps that
+  produce wrong answers.
+- [changes-from-upstream.md](changes-from-upstream.md): every row and column
+  this catalog drops, derives or adds, and how to get vanilla Overture instead.
+- [names/README.md](names/README.md): the search index, and how to read it
+  without downloading it.
+- [catalog.json](catalog.json): the STAC entry point.
+
+## License and attribution
+
+The data is **ODbL-1.0**. Overture's own attribution page states, for the
+divisions theme:
+
+> **License for theme:** ODbL
+>
+> - © OpenStreetMap contributors. Available under the Open Database License.
+> - geoBoundaries. Available under CC BY 4.0.
+> - Esri Community Maps contributors. Available under CC BY 4.0.
+> - Land Information New Zealand (LINZ). Available under CC BY 4.0.
+
+That block, copied verbatim with its links, is published beside the data at
+[_assets/overture/divisions-attribution.md](_assets/overture/divisions-attribution.md).
+The live page is [Attribution and
+Licensing](https://docs.overturemaps.org/attribution/).
+
+**What you have to do.** Display this line wherever the data is shown:
+
+> © OpenStreetMap contributors. Available under the
+> [Open Database License](https://www.openstreetmap.org/copyright).
+
+Overture also publishes the shorter form it uses on its own Explore tool,
+`© OpenStreetMap contributors, Overture Maps Foundation`, and asks that a
+publication cite `Overture Maps Foundation, overturemaps.org` with the date
+the data were accessed. This catalog was built from release 2026-10-21.0,
+accessed 2026-11-12.
+
+**Share-alike, plainly.** ODbL is a copyleft licence for databases. Because
+OpenStreetMap content is in the conflated whole, the share-alike term applies
+to all of it:
+
+- A **derived database** -- a subset, a reprojection, a join, an index built
+  on top of this one -- has to be offered under ODbL as well.
+- A **produced work** -- a map image, a screenshot, an application screen --
+  does not have to be ODbL, but it has to carry the attribution above.
+- You cannot apply technical measures that stop someone else exercising those
+  rights on the data you pass on.
+
+The index manifest sets `share_alike: true` on every ODbL entry in its
+`attribution` array, so a client can surface the obligation in its own
+interface without reading this file.
+
+**If share-alike does not work for you**, use the CC-BY-4.0 counterpart,
+[geoboundaries-catalog](https://source.coop/portolan-mirrors/geoboundaries-catalog)
+([repository](https://github.com/portolan-mirrors/geoboundaries-catalog)). It
+is the
+default for that reason. It carries the same column contract at ADM0, ADM1 and
+ADM2, under attribution-only terms, with no city or locality level and no
+multilingual names.
 
 ## Provenance
 
-TODO(setup): where the data came from. Say whether this catalog is the official
-publication from the producing organization, or a mirror of someone else's data.
-If it is a mirror, link the upstream and say how often it syncs.
+Overture Maps divisions, release `2026-10-21.0`, staged from
+`s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/` on
+2026-11-12. A release is immutable, so the release identifier alone pins the
+bytes; there is no commit or checksum to carry. Overture's release index is at
+https://docs.overturemaps.org/release/latest/ .
 
-## Access
-
-TODO(setup): one query someone can run without downloading anything, against a
-real published file. Run it before you paste it.
-
-```sql
--- Example shape. Replace the URL and the columns with your own.
-INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;
-SELECT count(*) FROM 'https://example.invalid/prefix/collection/data.parquet';
-```
+The pipeline that built this, the per-collection provenance records and the
+issue tracker are at https://github.com/portolan-mirrors/cn-geocoder-overture .

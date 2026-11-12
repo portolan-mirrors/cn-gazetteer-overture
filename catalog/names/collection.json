@@ -1,0 +1,403 @@
+{
+  "type": "Collection",
+  "stac_version": "1.1.0",
+  "stac_extensions": [
+    "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json",
+    "https://stac-extensions.github.io/table/v1.2.0/schema.json",
+    "https://stac-extensions.github.io/file/v2.1.0/schema.json",
+    "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json"
+  ],
+  "id": "names",
+  "title": "Overture Divisions Multilingual Name Search Index",
+  "description": "**EXPERIMENTAL.** The schema of this collection may change without notice, and the Source Cooperative repository that serves it is unlisted. A search sidecar, not a boundary dataset: 5,604,413 rows over 3,572,796 divisions in 272 countries, sorted by a folded form of the name. 2,031,617 of those rows are alternative spellings drawn from Overture's `names.common` map across 1,012 language codes, each pointing back at its division through `alt_of`, which is what makes this catalog worth its ODbL obligations. **The sort is the whole design.** This index is far too large to load whole, so the intended path is HTTP range requests: row group statistics on `name_norm` are tight, non-overlapping alphabetical ranges, the footer declares the sort, and the Parquet page index is written, so a typed prefix resolves from one or two row groups of about 128 KiB. Every row carries the GERS `feature_id` that joins it to a boundary collection, a bbox to fly to, a point, and an advisory `geometry_ref` that turns the geometry fetch into a single range read. 2,952,062 divisions, almost all localities, have no polygon anywhere in this catalog and say so through `has_boundary`. The [agent guide](AGENTS.md) has the prefix-lookup recipe and the join back to geometry. **ODbL share-alike applies.** A database derived from this collection has to be released under ODbL as well, and an application that shows it has to display the attribution: *\u00a9 OpenStreetMap contributors. Available under the [Open Database License](https://www.openstreetmap.org/copyright).* The [CC-BY-4.0 counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog) carries no such obligation and less coverage.",
+  "license": "ODbL-1.0",
+  "keywords": [
+    "experimental",
+    "geocoding",
+    "search index",
+    "place names",
+    "gazetteer",
+    "autocomplete",
+    "multilingual",
+    "Overture Maps",
+    "divisions",
+    "GERS",
+    "ODbL",
+    "GeoParquet"
+  ],
+  "providers": [
+    {
+      "name": "Overture Maps Foundation",
+      "description": "Produces the divisions theme by conflating OpenStreetMap with geoBoundaries, Esri Community Maps and Land Information New Zealand, and publishes it under ODbL with a stable GERS identifier on every feature.",
+      "roles": [
+        "producer",
+        "licensor"
+      ],
+      "url": "https://overturemaps.org/"
+    },
+    {
+      "name": "OpenStreetMap contributors",
+      "description": "The primary source of the divisions theme, and the reason the theme carries ODbL share-alike.",
+      "roles": [
+        "producer",
+        "licensor"
+      ],
+      "url": "https://www.openstreetmap.org/copyright"
+    },
+    {
+      "name": "Portolan Mirrors",
+      "description": "Republishes the Overture divisions release as cloud-native GeoParquet, a display-simplified companion, PMTiles and a multilingual name search index. Adds no divisions and changes no attribute values.",
+      "roles": [
+        "processor",
+        "host"
+      ],
+      "url": "https://github.com/portolan-mirrors/cn-geocoder-overture"
+    }
+  ],
+  "extent": {
+    "spatial": {
+      "bbox": [
+        [
+          -180.0,
+          -89.998009,
+          180.0,
+          83.664444
+        ]
+      ]
+    },
+    "temporal": {
+      "interval": [
+        [
+          "2026-10-21T00:00:00Z",
+          "2026-10-21T00:00:00Z"
+        ]
+      ]
+    }
+  },
+  "updated": "2026-11-12T00:00:00Z",
+  "table:primary_geometry": "geometry",
+  "table:row_count": 5604413,
+  "table:columns": [
+    {
+      "name": "name",
+      "type": "string",
+      "description": "The spelling to display, byte for byte as Overture published it. On a primary row it is `names.primary`; on an alternative row it is the value Overture lists under one language code in `names.common`. Display this; search `name_norm`."
+    },
+    {
+      "name": "name_norm",
+      "type": "string",
+      "description": "Derived, and **the column the file is sorted by**. The folding is fixed by the index contract: Unicode NFD, combining marks (category Mn) dropped, everything outside Unicode letters, digits, space, hyphen and apostrophe replaced by a space, whitespace collapsed, trimmed, lowercased. So 'Zurich' finds 'Z\u00fcrich' and 'koln' finds 'K\u00f6ln'. A script with no Latin decomposition, such as Han or Arabic, is lowercased and otherwise unchanged, so it is findable only in its own script. The sort is byte-wise on the UTF-8 encoding and not a locale collation, which is what lets a JavaScript `a < b` on the same folded strings agree with the file's order."
+    },
+    {
+      "name": "level",
+      "type": "int8",
+      "description": "Derived. This catalog's 0-to-4 mapping of Overture's subtype, and the level contract a geocoder filters on: 0 country and dependency, 1 region, 2 county, 3 localadmin, 4 locality. It is **not** Overture's `admin_level`, which is null below county and puts a dependency at 1. The boundary collection that holds a row's geometry is the one at the same level."
+    },
+    {
+      "name": "subtype",
+      "type": "string",
+      "description": "Attested. Overture's own placetype, carried through so that the two subtypes sharing level 0 stay distinguishable: `country`, `dependency`, `region`, `county`, `localadmin` or `locality`."
+    },
+    {
+      "name": "country",
+      "type": "string",
+      "description": "Derived. ISO 3166-1 alpha-3, mapped from Overture's alpha-2 through the official ISO 3166-1 table packaged with pycountry, so this index and the CC-BY counterpart can be filtered with one code system. A country row carries its own code. A synthetic Overture code with no alpha-3 equivalent is carried through unchanged."
+    },
+    {
+      "name": "feature_id",
+      "type": "string",
+      "description": "Attested. The GERS id of the **division**, which is `division_id` in every boundary collection. It is a logical key and never a row offset, which is what makes a version skew between this index and the boundary files recoverable rather than silently wrong. An alternative-name row repeats its division's `feature_id`, so a result list dedupes on it."
+    },
+    {
+      "name": "source",
+      "type": "string",
+      "description": "Constant `overture-divisions` on every row. The index contract allows one index to hold several sources and requires a result to be able to say where it came from; this index holds one."
+    },
+    {
+      "name": "name_lang",
+      "type": "string",
+      "description": "Attested. The language code Overture keys this spelling under in `names.common`. Null on a primary row, where the language of `names.primary` is unstated. Where several language codes agree on one spelling the index keeps a single row and this column holds the first code in alphabetical order, with `name_lang_count` saying how many agreed."
+    },
+    {
+      "name": "name_lang_count",
+      "type": "int16",
+      "description": "Derived. How many of Overture's language codes map to this exact folded spelling for this division. 1 on a primary row. It is high where a name travels unchanged between languages, which is also a usable signal that a spelling is widely recognized."
+    },
+    {
+      "name": "alt_of",
+      "type": "string",
+      "description": "Derived. Null on a primary row; on an alternative-name row it holds that row's own `feature_id`, which is the index contract's way of marking the row as an alternative spelling of a division whose primary row is elsewhere in the file. Filter `alt_of IS NULL` for one row per division."
+    },
+    {
+      "name": "parent_name",
+      "type": "string",
+      "description": "Derived. `names.primary` of the division's parent, so an autocomplete can show 'Springfield, Illinois' without a second fetch. Null for a country, which has no parent."
+    },
+    {
+      "name": "area_km2",
+      "type": "float",
+      "description": "Derived. The division's geodesic land area in square kilometres, copied from its boundary row, as float32 because an index this size cannot afford a double for a relevance weight. **Null where `has_boundary` is false**, which is most localities. Of two divisions with the same name, the larger is usually the one meant."
+    },
+    {
+      "name": "population",
+      "type": "int32",
+      "description": "Attested. Overture's `population` for the division where it has one. Sparse, undated, and the single most useful ranking signal for a locality search, where area is usually null."
+    },
+    {
+      "name": "prominence",
+      "type": "int32",
+      "description": "Attested. Overture's `cartography.prominence`, its own ranking of how important a place is to show on a map. Documented as cartographic guidance rather than a measurement, so use it as a tie-break."
+    },
+    {
+      "name": "name_dupes",
+      "type": "int32",
+      "description": "Derived. How many rows of this index share this row's `name_norm`, counted worldwide and across levels and across primary and alternative rows. An autocomplete needs it to decide when to disambiguate: the most repeated folded name in this index occurs 1,019 times."
+    },
+    {
+      "name": "has_boundary",
+      "type": "boolean",
+      "description": "Derived. True when a boundary collection in this catalog holds a polygon for this division. False on 2,952,062 of the 3,572,796 primary rows, all of them localities that Overture publishes as a point only. On a false row `bbox` is the division's point collapsed to zero width, `area_km2` is null and `geometry_ref` is null, so a client knows before it fetches that there is no outline to draw."
+    },
+    {
+      "name": "bbox",
+      "type": "struct",
+      "description": "The extent to fly a map to after a hit, as xmin, ymin, xmax, ymax. It is the division's full extent where a boundary exists and the division's point, collapsed, where one does not. Stored as **float32 with every bound rounded outward**, which halves what four coordinates a row cost across millions of rows; the box therefore always contains the division but is approximate to about 1e-5 degrees, roughly a metre. The boundary collections keep float64. A signed box where xmin > xmax would mean an antimeridian crossing."
+    },
+    {
+      "name": "geometry_ref",
+      "type": "struct",
+      "description": "Derived, and **advisory**. `file`, `row_group` and `row`: where this division's geometry sits in its boundary collection, and at the same index in that collection's display companion, which holds the same rows in the same groups. It turns a geometry fetch into one range read with no search. A consumer must still verify that the `division_id` it decodes equals `feature_id` and fall back to a lookup on mismatch, because this is a hint and the catalog version is what makes it valid. Null on an alternative-name row and on a point-only division."
+    },
+    {
+      "name": "geometry",
+      "type": "geometry",
+      "description": "Derived. A Point as WKB in CRS84: `ST_PointOnSurface` of the division's land polygon where there is one, which is guaranteed to fall inside the division where a centroid is not, and Overture's own division point where there is not. Use it for a marker, never as the division's geometry. **Null on an alternative-name row**, which describes the same division as its primary row; repeating the point on two million alternative rows cost 40 MB and said nothing new."
+    }
+  ],
+  "assets": {
+    "data": {
+      "href": "./overture_division_names.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Multilingual name index, GeoParquet 1.1 (876 row groups of 6,400 rows, zstd, page index, sorted by name_norm)",
+      "roles": [
+        "data"
+      ],
+      "file:size": 427507857,
+      "file:checksum": "1220388e385f86f9b34aea67df12910019f72ad6d4aad54971704f8fff085b644d62",
+      "table:primary_geometry": "geometry"
+    },
+    "index-manifest": {
+      "href": "./index.json",
+      "type": "application/json",
+      "title": "Index manifest for the geocoder (cnmw-index/1.0)",
+      "roles": [
+        "metadata"
+      ],
+      "file:size": 4534,
+      "file:checksum": "12205bb8b9ea147fe52339588a0ccfb18ddd86992819b4fe514d956f6c6159f6b84d",
+      "description": "The kilobyte a client fetches before the index: its size, row group count, checksum, catalog version, the URL and row count of every boundary and display file, and the attribution each one requires with a share_alike flag."
+    },
+    "pmtiles": {
+      "href": "./names.pmtiles",
+      "type": "application/vnd.pmtiles",
+      "title": "Multilingual Name Search Index, vector tiles to zoom 8",
+      "roles": [
+        "visual",
+        "data"
+      ],
+      "file:size": 153363552,
+      "file:checksum": "1220264656c698cd732054287b8c6bb26efe536b88bda55a346fa13afa3177240bff",
+      "pmtiles:layers": [
+        "names"
+      ]
+    },
+    "style-default": {
+      "href": "./styles/default.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Indexed names by level",
+      "roles": [
+        "style",
+        "default"
+      ],
+      "file:size": 1026,
+      "file:checksum": "1220e344f1bf74df3bd53646f2ac0931023a35d5a7519d7aa06b470835c8ff4c1ac8"
+    },
+    "style-ambiguity": {
+      "href": "./styles/ambiguity.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "How many places share this name",
+      "roles": [
+        "style"
+      ],
+      "file:size": 1043,
+      "file:checksum": "1220ea2aa0afb867e2590cbbcd98e308428b2bb71bfa6bad5b02606a082c5281d752"
+    },
+    "style-languages": {
+      "href": "./styles/languages.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Languages indexed for this spelling",
+      "roles": [
+        "style"
+      ],
+      "file:size": 1085,
+      "file:checksum": "122027f1427d45106a51805f6f12fb07038f2fab7b3af0b0d76adeb979273242bd3a"
+    },
+    "style-population": {
+      "href": "./styles/population.json",
+      "type": "application/vnd.mapbox.style+json",
+      "title": "Population of the named place",
+      "roles": [
+        "style"
+      ],
+      "file:size": 1086,
+      "file:checksum": "1220928a598b0726607c6d8d6cf25e8a68be60147bcae45f3d14056aeb4d3de5c600"
+    },
+    "overture-division-schema": {
+      "href": "../_assets/overture/division.schema.yaml",
+      "type": "application/yaml",
+      "title": "Overture type=division JSON Schema, as published",
+      "roles": [
+        "metadata",
+        "source"
+      ],
+      "description": "Overture's own schema for the division feature type, copied from OvertureMaps/schema. Every column description in this collection marked attested is quoted or paraphrased from it.",
+      "file:size": 10785,
+      "file:checksum": "1220c4efe220e8afd7869a6474bfcacbeab6303d83fc550255cabc097b28bc304946"
+    },
+    "overture-division-area-schema": {
+      "href": "../_assets/overture/division_area.schema.yaml",
+      "type": "application/yaml",
+      "title": "Overture type=division_area JSON Schema, as published",
+      "roles": [
+        "metadata",
+        "source"
+      ],
+      "description": "Overture's own schema for the division_area feature type, which is where the land and maritime class definitions and the is_land flag come from.",
+      "file:size": 3577,
+      "file:checksum": "12200975dc2ada8b5dd6012e5c74f5bb04af70aa887b749cbd7515bcb40612466ec4"
+    },
+    "overture-attribution": {
+      "href": "../_assets/overture/divisions-attribution.md",
+      "type": "text/markdown",
+      "title": "Overture attribution requirements for divisions, verbatim",
+      "roles": [
+        "metadata",
+        "license"
+      ],
+      "description": "The divisions block of Overture's attribution page, copied verbatim on 2026-11-12. It is the evidence behind this collection's license and required attribution.",
+      "file:size": 1749,
+      "file:checksum": "1220a8d266f78bf28ab0fd2858586e49643b1146bb70c84da09eb9e084d95a492dc3"
+    },
+    "thumbnail": {
+      "href": "./names.thumb.png",
+      "type": "image/png",
+      "title": "Multilingual Name Search Index, rendered from the default style",
+      "roles": [
+        "thumbnail"
+      ],
+      "file:size": 586725,
+      "file:checksum": "12205c632a9955d30a32a034eed41901cf83d27d943ddb59d5a69cd9cfbddf8e4e71"
+    }
+  },
+  "links": [
+    {
+      "rel": "root",
+      "href": "../catalog.json",
+      "type": "application/json",
+      "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)"
+    },
+    {
+      "rel": "parent",
+      "href": "../catalog.json",
+      "type": "application/json",
+      "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)"
+    },
+    {
+      "rel": "describedby",
+      "href": "./README.md",
+      "type": "text/markdown",
+      "title": "Collection README"
+    },
+    {
+      "rel": "agents",
+      "href": "./AGENTS.md",
+      "type": "text/markdown",
+      "title": "Collection agent guide"
+    },
+    {
+      "rel": "via",
+      "href": "https://docs.overturemaps.org/guides/divisions",
+      "type": "text/html",
+      "title": "Overture Maps divisions theme guide (upstream source)"
+    },
+    {
+      "rel": "describedby",
+      "href": "https://docs.overturemaps.org/schema/reference/divisions/division",
+      "type": "text/html",
+      "title": "Overture division schema reference"
+    },
+    {
+      "rel": "cite-as",
+      "href": "https://overturemaps.org/",
+      "type": "text/html",
+      "title": "Overture Maps Foundation, overturemaps.org"
+    },
+    {
+      "rel": "license",
+      "href": "https://opendatacommons.org/licenses/odbl/",
+      "type": "text/html",
+      "title": "Open Database License (ODbL) v1.0"
+    },
+    {
+      "rel": "license",
+      "href": "https://docs.overturemaps.org/attribution/",
+      "type": "text/html",
+      "title": "Overture attribution and licensing requirements"
+    },
+    {
+      "rel": "related",
+      "href": "https://source.coop/portolan-mirrors/geoboundaries-catalog",
+      "type": "text/html",
+      "title": "geoBoundaries CGAZ, the CC-BY-4.0 counterpart catalog"
+    },
+    {
+      "rel": "related",
+      "href": "../country/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Country and Dependency Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../region/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Region Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../county/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - County Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../localadmin/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Local Administrative Boundaries"
+    },
+    {
+      "rel": "related",
+      "href": "../locality/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Locality Boundaries"
+    },
+    {
+      "rel": "pmtiles",
+      "href": "./names.pmtiles",
+      "type": "application/vnd.pmtiles",
+      "title": "Multilingual Name Search Index, vector tiles",
+      "pmtiles:layers": [
+        "names"
+      ]
+    }
+  ]
+}

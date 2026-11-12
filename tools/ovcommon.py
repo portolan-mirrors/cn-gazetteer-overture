@@ -474,6 +474,53 @@ def footer_metadata(extra: dict[str, str] | None = None) -> dict[bytes, bytes]:
     return {k.encode("utf-8"): v.encode("utf-8") for k, v in meta.items()}
 
 
+def wrap_markdown(text: str, width: int = 79) -> str:
+    """Wrap generated markdown to a readable width, leaving structure alone.
+
+    A generator builds a paragraph as one long string, and a reader opening
+    the raw file in a terminal or a diff then gets one line per paragraph.
+    Fenced code blocks, tables and headings are left exactly as they are,
+    because wrapping any of those changes what they mean. List markers and
+    blockquote markers keep their prefix and get a hanging indent.
+    """
+    import re
+    import textwrap
+
+    out: list[str] = []
+    in_fence = False
+    for line in text.split("\n"):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            out.append(line)
+            continue
+        stripped = line.strip()
+        if (
+            in_fence
+            or not stripped
+            or len(line) <= width
+            or stripped.startswith(("|", "#", "---"))
+        ):
+            out.append(line)
+            continue
+        prefix = re.match(r"^(\s*(?:> )?(?:[-*] |\d+\. )?)", line).group(1)
+        body = line[len(prefix):]
+        hanging = " " * len(prefix)
+        if prefix.lstrip().startswith(">"):
+            hanging = prefix[: prefix.index(">") + 2]
+        out.extend(
+            textwrap.wrap(
+                body,
+                width=width,
+                initial_indent=prefix,
+                subsequent_indent=hanging,
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+            or [line]
+        )
+    return "\n".join(out)
+
+
 def human(n: int) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if n < 1024 or unit == "GB":
