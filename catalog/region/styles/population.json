@@ -1,0 +1,54 @@
+{
+  "version": 8,
+  "name": "Population",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../region.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "region-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "region",
+      "paint": {
+        "fill-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "population"
+            ],
+            0
+          ],
+          "#eef4e0",
+          100000,
+          "#cfe3a9",
+          500000,
+          "#a6cc72",
+          1000000,
+          "#74a84a",
+          2000000,
+          "#4a7c32",
+          5000000,
+          "#2a4d1c"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "region-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "region",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

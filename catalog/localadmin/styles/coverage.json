@@ -1,0 +1,78 @@
+{
+  "version": 8,
+  "name": "Which country publishes this level",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../localadmin.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "localadmin-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "localadmin",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "country"
+          ],
+          "CZE",
+          "#1f78b4",
+          "SVK",
+          "#e31a1c",
+          "CHN",
+          "#33a02c",
+          "IDN",
+          "#ff7f00",
+          "CHE",
+          "#6a3d9a",
+          "ARG",
+          "#b15928",
+          "IRN",
+          "#a6cee3",
+          "MAR",
+          "#fb9a99",
+          "IRQ",
+          "#b2df8a",
+          "FRA",
+          "#fdbf6f",
+          "SYR",
+          "#cab2d6",
+          "BFA",
+          "#ffff99",
+          "HTI",
+          "#17becf",
+          "SEN",
+          "#d62728",
+          "JOR",
+          "#2ca02c",
+          "BEL",
+          "#9467bd",
+          "SLE",
+          "#8c564b",
+          "CIV",
+          "#e377c2",
+          "AUT",
+          "#7f7f7f",
+          "#cfcfcf"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "localadmin-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "localadmin",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

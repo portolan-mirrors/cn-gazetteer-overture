@@ -1,0 +1,44 @@
+{
+  "version": 8,
+  "name": "Country or dependency",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../country.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "country-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "country",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "subtype"
+          ],
+          "country",
+          "#2a5f99",
+          "dependency",
+          "#e0a030",
+          "#cfcfcf"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "country-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "country",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

@@ -39,7 +39,8 @@ async function load (name) {
   return await import(name)
 }
 
-const { parquetMetadataAsync, parquetReadObjects } = await load('hyparquet')
+const { parquetMetadataAsync, parquetReadObjects, cachedAsyncBuffer } =
+  await load('hyparquet')
 const { compressors } = await load('hyparquet-compressors')
 
 const file = process.argv[2] ??
@@ -79,7 +80,11 @@ function fmt (n) {
   return `${n} B`
 }
 
-const { stats, buffer, close } = await countingBuffer(file)
+const { stats, buffer: raw, close } = await countingBuffer(file)
+// What a real client does: cache the slices already fetched, so the footer is
+// read once rather than on every query. Without this the per-prefix figures
+// below are dominated by a re-read of the footer and say nothing useful.
+const buffer = cachedAsyncBuffer(raw)
 
 // 1. The footer, read as one exactly-sized tail request. The index manifest
 //    publishes `index.size` precisely so this does not have to be speculative.
@@ -148,15 +153,26 @@ for (const prefix of ['zur', 'sao pa', 'bengal', 'købe', 'wa']) {
   })
   const ms = performance.now() - t
   const matches = rows.filter(r => r.name_norm.startsWith(prefix))
-  const top = matches
-    .slice()
+  // Dedupe by feature_id, keeping the primary row where one also matched, then
+  // rank. This is the client contract: an alternative-name row is the same
+  // division as its primary row, so a result list that skips this step shows
+  // one city once per language.
+  const byFeature = new Map()
+  for (const r of matches) {
+    const kept = byFeature.get(r.feature_id)
+    if (!kept || (kept.alt_of !== null && r.alt_of === null)) {
+      byFeature.set(r.feature_id, { ...r, matched: kept?.matched ?? r.name })
+    }
+  }
+  const top = [...byFeature.values()]
     .sort((a, b) => (a.level - b.level) || ((b.population ?? 0) - (a.population ?? 0)))
     .slice(0, 3)
-    .map(r => `${r.name}${r.name_lang ? ` [${r.name_lang}]` : ''} (L${r.level} ${r.country})`)
+    .map(r => `${r.name}${r.matched !== r.name ? ` (matched "${r.matched}")` : ''}`
+      + ` [L${r.level} ${r.country}${r.parent_name ? ', ' + r.parent_name : ''}]`)
   console.log(
     `\nprefix "${prefix}"  groups ${groups.length}  ` +
     `fetched ${fmt(stats.bytes - before.bytes)} in ${stats.requests - before.requests} request(s), ` +
-    `${ms.toFixed(0)} ms  matches ${matches.length}`,
+    `${ms.toFixed(0)} ms  rows ${matches.length}  divisions ${byFeature.size}`,
   )
   console.log(`  top: ${top.join(' | ')}`)
 }

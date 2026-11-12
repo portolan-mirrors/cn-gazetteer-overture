@@ -107,8 +107,34 @@ def band_counts(con, table: str, field: str, breaks: list[float]) -> list[int]:
     return counts
 
 
+# Columns whose distribution quantiles cannot carry bands, with the break set
+# that does and the reason. name_lang_count is 1 on the great majority of rows,
+# so every quantile of it is 1 and a quantile-derived band 0 would be empty;
+# the bands below are the ones a reader of a legend would want anyway.
+BREAK_OVERRIDES = {
+    "names.name_lang_count": [2, 3, 5, 10, 50],
+    "names.name_dupes": [2, 4, 10, 100],
+    # Quantiles of name_langs at the country level land every cut on 200,
+    # because the distribution is a spike there: a country averages 202
+    # language names and a dependency 104. Snapped to readable numbers that
+    # separate the two populations instead of collapsing to one break, which
+    # would make a two-entry legend out of the most interesting column in the
+    # collection.
+    "country.name_langs": [50, 150, 200, 230, 260],
+    # Localities cluster at 1 and 2 language names, so quantiles give two
+    # bands. These separate "named once" from "named in a handful of
+    # languages" from "named widely", which is what a reader wants to see.
+    "locality.name_langs": [2, 3, 5, 10],
+}
+
+
 def step_breaks(con, table: str, field: str, bands: int) -> tuple[list, list[int]]:
     """Quantile cuts, snapped to readable numbers, with no empty band."""
+    key = f"{table}.{field}"
+    if key in BREAK_OVERRIDES:
+        out = list(BREAK_OVERRIDES[key])
+        return out, band_counts(con, table, field, out)
+
     quantiles = [i / bands for i in range(1, bands)]
     raw = con.execute(
         f'SELECT quantile_cont("{field}", {quantiles}) FROM {table} '
@@ -119,16 +145,23 @@ def step_breaks(con, table: str, field: str, bands: int) -> tuple[list, list[int
         snapped = nice(float(value))
         if not candidate or snapped > candidate[-1]:
             candidate.append(snapped)
-    # Drop the bands the snap collapsed, then drop any band that is empty,
-    # from the top down, so the ramp keeps its light end for the common case.
-    while True:
+    # Drop any break that brackets nothing. An empty band i is fixed by
+    # removing the break at index i, which merges it into its neighbour: for
+    # band 0 that is the break below everything, for the last band the break
+    # above everything, and in between either side works.
+    while len(candidate) > 1:
         counts = band_counts(con, table, field, candidate)
         empty = [i for i, n in enumerate(counts) if n == 0]
-        if not empty or len(candidate) == 1:
+        if not empty:
             break
-        # An empty band i means breaks[i-1] and breaks[i] bracket nothing.
-        drop = min(empty[-1], len(candidate) - 1)
-        candidate.pop(drop)
+        candidate.pop(min(empty[0], len(candidate) - 1))
+    counts = band_counts(con, table, field, candidate)
+    if any(n == 0 for n in counts):
+        sys.exit(
+            f"{key}: cannot find breaks with no empty band; measured bands "
+            f"{counts} for breaks {candidate}. Add an entry to "
+            "BREAK_OVERRIDES with the reason."
+        )
     out = [int(v) if float(v).is_integer() else float(v) for v in candidate]
     return out, band_counts(con, table, field, out)
 

@@ -40,20 +40,34 @@ OUT = REPO / "docs" / "index-measurements.md"
 
 
 def footer_bytes(path: Path) -> int:
-    """Bytes from the first row group's end to the end of the file.
+    """Bytes from the end of the last page to the end of the file.
 
-    That is the footer, the column index and the offset index together, which
+    That is the column index, the offset index and the footer together, which
     is what a client fetches before it can read any row group. Parquet writes
-    the page index after the last row group and before the footer, so the span
-    from the end of the last row group's data to EOF is the right measure.
+    the page index after the last row group and the footer after that, so the
+    span from the end of the last column chunk's pages to EOF is the right
+    measure. ``file_offset`` is optional and PyArrow writes 0 for it, so the
+    offset is taken from the dictionary page where there is one and from the
+    first data page otherwise.
     """
     md = pq.ParquetFile(path).metadata
     last = md.row_group(md.num_row_groups - 1)
-    end_of_data = max(
-        last.column(i).file_offset + last.column(i).total_compressed_size
-        for i in range(last.num_columns)
-    )
-    return path.stat().st_size - end_of_data
+    end_of_data = 0
+    for i in range(last.num_columns):
+        col = last.column(i)
+        start = col.dictionary_page_offset or col.data_page_offset
+        end_of_data = max(end_of_data, start + col.total_compressed_size)
+    size = path.stat().st_size
+    with path.open("rb") as fh:
+        fh.seek(-8, 2)
+        tail = fh.read(8)
+    metadata_len = int.from_bytes(tail[:4], "little")
+    # The thrift footer plus its length and the trailing magic. This is what a
+    # reader fetches as "the footer": the page index bodies sit before it and
+    # are read per column chunk, lazily, only by a reader that wants a page
+    # rather than a whole chunk.
+    footer = metadata_len + 8
+    return footer, size - end_of_data - footer
 
 
 def row_group_ranges(path: Path) -> list[tuple[str, str]]:
@@ -108,7 +122,7 @@ def main() -> int:
     pf = pq.ParquetFile(NAMES_PATH)
     md = pf.metadata
     size = NAMES_PATH.stat().st_size
-    footer = footer_bytes(NAMES_PATH)
+    footer, page_index = footer_bytes(NAMES_PATH)
     ranges = row_group_ranges(NAMES_PATH)
 
     # Every two-character prefix that actually occurs, taken from the row group
@@ -135,14 +149,50 @@ def main() -> int:
         f"| Size | {human(size)} ({size:,} bytes) |",
         f"| Bytes per row | {size / md.num_rows:.1f} |",
         f"| Row groups | {md.num_row_groups:,} of {NAMES_ROW_GROUP_ROWS:,} rows |",
-        f"| Mean row group | {human(int((size - footer) / md.num_row_groups))} |",
-        f"| Footer + page index | {footer:,} bytes "
+        f"| Mean row group | "
+        f"{human(int((size - footer - page_index) / md.num_row_groups))} |",
+        f"| Footer metadata | {footer:,} bytes "
         f"({100 * footer / size:.2f}% of the file) |",
+        f"| Page index | {page_index:,} bytes "
+        f"({100 * page_index / size:.2f}% of the file) |",
         f"| Columns | {len(pf.schema_arrow.names)} |",
         "",
-        "A range-request client fetches the footer once. The index manifest",
-        "declares `index.size`, so that fetch can be one exactly-sized tail",
-        "request rather than a speculative one.",
+        "A range-request client fetches the footer metadata once, and the",
+        "index manifest declares `index.size` so that fetch can be one",
+        "exactly-sized tail request rather than a speculative 512 KB one. The",
+        "page index is **not** part of that read: its bodies sit before the",
+        "footer, and a reader fetches the slice belonging to one column chunk",
+        "only when it wants a single page rather than the whole chunk.",
+        "",
+        "**Why the row groups are this large.** The index-file contract asks",
+        "for 100-150 KiB per row group, which is right for the 2.5 MB index it",
+        "was measured on and wrong for this one. The footer carries one thrift",
+        "record per column per row group, so it grows as the row groups shrink,",
+        "and a range-request client reads the whole footer before it reads",
+        "anything. Measured on this index:",
+        "",
+        "| rows/group | groups | footer | page index | per group | footer + 1 group |",
+        "|---|---|---|---|---|---|",
+        "| 1,600 | 3,503 | 8.15 MB | 2.45 MB | 121 KiB | 8.27 MB |",
+        "| 3,200 | 1,752 | 4.10 MB | 1.23 MB | 239 KiB | 4.34 MB |",
+        "| 6,400 | 876 | 2.05 MB | 0.62 MB | 474 KiB | 2.52 MB |",
+        "| 12,800 | 438 | 1.05 MB | 0.32 MB | 960 KiB | 2.01 MB |",
+        "",
+        "6,400 is the knee: it answers a first keystroke in 2.5 MB against 8.3",
+        "MB at the contract's band, and a later keystroke in under half a",
+        "megabyte, which a client holds anyway because typing one more letter",
+        "of the same prefix stays inside the same row group. 12,800 saves",
+        "another half megabyte on the first read and doubles every later one.",
+        "",
+        "Statistics are written on",
+        "`name_norm`, `level`, `subtype`, `country`, `source`, `has_boundary`,",
+        "`name_lang`, `name_lang_count` and `name_dupes` only. With statistics",
+        "on all 19 columns the footer was 8.15 MB at 1,600-row groups rather",
+        "than 10.77 MB, because a min and a max of `name`, `parent_name`,",
+        "`feature_id` and `alt_of` is four strings per row group. Those",
+        "statistics would prune nothing: the file is sorted by `name_norm` and",
+        "nothing else, so every other column's ranges overlap across every",
+        "group.",
         "",
         "## Row groups touched per two-letter prefix",
         "",
@@ -162,8 +212,9 @@ def main() -> int:
         f"So a typed two-letter prefix costs a median of "
         f"{statistics.median(present):.0f} row group read"
         f"{'' if statistics.median(present) == 1 else 's'} of about "
-        f"{human(int((size - footer) / md.num_row_groups))}, on top of the "
-        f"{footer:,}-byte footer, and never more than {max(present)}.",
+        f"{human(int((size - footer - page_index) / md.num_row_groups))}, on "
+        f"top of the {footer:,}-byte footer metadata read that happens once, "
+        f"and never more than {max(present)}.",
         "",
         "The worst prefixes, which are the common ones:",
         "",
@@ -196,8 +247,11 @@ def main() -> int:
                 "bytes_per_row": round(size / md.num_rows, 2),
                 "row_groups": md.num_row_groups,
                 "row_group_rows": NAMES_ROW_GROUP_ROWS,
-                "mean_row_group_bytes": int((size - footer) / md.num_row_groups),
+                "mean_row_group_bytes": int(
+                    (size - footer - page_index) / md.num_row_groups
+                ),
                 "footer_bytes": footer,
+                "page_index_bytes": page_index,
                 "prefixes": len(prefixes),
                 "groups_per_prefix": {
                     "min": min(present),

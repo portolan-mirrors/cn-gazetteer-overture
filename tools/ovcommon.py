@@ -125,13 +125,37 @@ SIMPLIFY_TOLERANCE = {
     "locality": 0.0005,
 }
 
-# The search index is sorted by name_norm, so a client that wants a name prefix
-# fetches a contiguous run of row groups. The target is bytes, not rows: a row
-# group of 100-150 KiB is what keeps a prefix lookup a single small range
-# request as the index grows. tools/build_names.py prints the achieved KiB per
-# group and fails if it leaves the band.
-NAMES_ROW_GROUP_ROWS = 2048
-NAMES_ROW_GROUP_TARGET_KIB = (100, 150)
+# The search index is sorted by name_norm, so a client that wants a name
+# prefix fetches a contiguous run of row groups.
+#
+# The index-file contract asks for 100-150 KiB per row group, and that is the
+# right target for the index it was measured on: 2.5 MB, where the Parquet
+# footer is a rounding error. It is the wrong target here. This index is 424 MB
+# in 5.6 million rows, and the footer carries one thrift record per column per
+# row group, so the footer grows as the row groups shrink. A range-request
+# client reads the whole footer before it can read anything, which makes the
+# footer part of what the first keystroke costs.
+#
+# Measured on the built index, with statistics restricted to the columns that
+# need them:
+#
+#   rows/group  groups  footer  page index  per group  footer + 1 group
+#        1,600   3,503  8.15 MB     2.45 MB    121 KiB          8.27 MB
+#        3,200   1,752  4.10 MB     1.23 MB    239 KiB          4.34 MB
+#        6,400     876  2.05 MB     0.62 MB    474 KiB          2.52 MB
+#       12,800     438  1.05 MB     0.32 MB    960 KiB          2.01 MB
+#
+# 6,400 is the knee. It answers a first keystroke in 2.5 MB against 8.3 MB at
+# the contract's band, and a later keystroke in under half a megabyte, which a
+# client holds in memory anyway because typing one more letter of the same
+# prefix stays inside the same row group. 12,800 saves another half megabyte
+# on the first read and doubles every later one, which is the wrong way round
+# for an autocomplete.
+#
+# tools/measure_index.py reprints the whole table's worth of numbers for the
+# built file, and the build warns if the achieved figure leaves the band.
+NAMES_ROW_GROUP_ROWS = 6400
+NAMES_ROW_GROUP_TARGET_KIB = (400, 560)
 
 ZSTD_LEVEL = 15
 

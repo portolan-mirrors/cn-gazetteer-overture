@@ -1,0 +1,178 @@
+# Human-enriched metadata for the names collection.
+#
+# Tracked in git, never published: tools/publish.py skips every
+# dot-directory. This is the canonical home for the facts below, and
+# README.md carries the human-facing rendering. Keep the two in step by
+# rerunning tools/make_readmes.py after any edit here.
+
+license: ODbL-1.0
+license_url: https://opendatacommons.org/licenses/odbl/
+
+attribution: >
+  © OpenStreetMap contributors. Available under the Open Database License.
+  Includes data from geoBoundaries, Esri Community Maps contributors and Land
+  Information New Zealand (LINZ), each available under CC BY 4.0.
+
+citation: >
+  Overture Maps Foundation, overturemaps.org. Divisions theme, release
+  2026-10-21.0, accessed 2026-11-12.
+
+source_url: https://docs.overturemaps.org/guides/divisions
+
+processing_notes: >
+  Built by tools/build_names.py from the staged Overture type=division rows of
+  release 2026-10-21.0 and from the five boundary collections in this
+  catalog, not from the Overture release twice, so the index and the geometry
+  it points at cannot disagree. Staged 2026-11-12.
+
+  Which rows are indexed. One primary row per division of subtype country,
+  dependency, region, county, localadmin or locality: 3,572,796 of them, and
+  every one has a names.primary, so 0 divisions were dropped as unnamed. Plus
+  one alternative row per distinct alternative spelling from the division's
+  names.common map.
+
+  The two reductions applied to the alternatives, both lossless for search.
+  Overture's names.common maps hold 3,406,160 entries across the divisions in
+  scope. An entry whose folded form equals the division's own folded primary
+  name is dropped, because it is the same search key. Entries that fold to the
+  same string as each other are collapsed into one row, with name_lang holding
+  the first language code in alphabetical order and name_lang_count holding
+  how many languages agreed. Measured: 6,978,956 rows before reduction,
+  5,604,413 after, so 2,031,617 alternative rows survive from 3,406,160
+  entries. names.rules, Overture's perspective-dependent name variants, is
+  deliberately not indexed; see known_issues.
+
+  No language cap is applied. ALT_LEVEL_CEILING in tools/build_names.py is 4,
+  which indexes every language at every level. The alternative was measured:
+  capping at level 3, which drops locality alternatives, would leave 3,890,658
+  rows instead of 5,604,413. It was rejected because multilingual locality
+  search is the reason this ODbL catalog exists, and because the cost of a
+  query on the range path is set by the row group size rather than by the
+  file size.
+
+  name_norm. The folding rule is fixed by the index contract the geocoder
+  reads: Unicode NFD, combining marks (category Mn) dropped, every character
+  outside Unicode letters, digits, space, hyphen and apostrophe replaced by a
+  space, whitespace collapsed, trimmed, lowercased. It is computed in Python
+  because DuckDB has no NFD, over the 3,842,323 distinct name strings rather
+  than over every row; 0 of them fold to nothing. The sort compares the UTF-8
+  bytes and not a locale collation, which is what makes a JavaScript a < b on
+  the same folded strings agree with the file's order.
+
+  Columns. feature_id is the division's GERS id, which is division_id in every
+  boundary collection. country is derived ISO 3166-1 alpha-3 from Overture's
+  alpha-2 through the official table packaged with pycountry 26.2.16. level is
+  this catalog's own mapping of the subtype: country and dependency 0, region
+  1, county 2, localadmin 3, locality 4. parent_name is the parent division's
+  names.primary from a self-join on parent_division_id. area_km2 is copied
+  from the division's boundary row as float32. population and prominence are
+  Overture's own, prominence only on localities. name_dupes counts rows
+  sharing a name_norm across the whole index. geometry_ref names the row group
+  and row where the division's geometry sits in its boundary collection, and
+  at the same offset in that collection's display companion.
+
+  Layout. 5,604,413 rows sorted by (name_norm, level, country, feature_id),
+  written as GeoParquet 1.1, WKB point, zstd level 15, Parquet page index,
+  2,048 rows per row group, with the sort declared in the footer as name_norm
+  ascending nulls first. The row group size targets bytes rather than rows,
+  inside the 100-150 KiB band where a prefix lookup is a single small range
+  request; tools/measure_index.py prints the achieved figure and the build
+  warns if it leaves the band. tools/build_names.py verifies on every run that
+  every required column is present and correctly typed, that name_norm is
+  ascending byte-wise with no nulls, that the footer declares the sort, and
+  that the per-row-group statistics on name_norm are present and untruncated.
+  It refuses to write a file that fails any of those.
+
+  The bbox struct is float32 with every bound rounded outward, so the box
+  always contains the division and is approximate to about 1e-5 degrees. Four
+  doubles a row across 5.6 million rows was the reason.
+
+known_issues: >
+  **EXPERIMENTAL.** The schema may change without notice and the Source
+  Cooperative repository is unlisted. Pin the catalog_version in index.json if
+  you depend on this.
+
+  **ODbL share-alike.** This index is a database. A database derived from it
+  has to be released under ODbL, and an application that shows results from it
+  has to display the attribution. index.json sets share_alike: true on every
+  ODbL entry in its attribution array so a widget can surface the obligation
+  without reading this file. The CC-BY-4.0 counterpart at
+  https://source.coop/portolan-mirrors/geoboundaries-catalog carries no such
+  obligation, and a geocoder configured against it needs no share-alike
+  notice.
+
+  **This is a sidecar, not a boundary dataset.** The geometry column is one
+  point per division, for a marker. The division's shape lives in the country,
+  region, county, localadmin or locality collection, chosen by the row's
+  level. Do not compute area, length or containment from this file.
+
+  **2,952,062 of the 3,572,796 divisions have no polygon anywhere in this
+  catalog**, almost all of them localities Overture publishes as a point only.
+  has_boundary is false on those rows, geometry_ref and area_km2 are null, and
+  bbox is the division's point collapsed to zero width. They are still the
+  right answer to a search, so a client has to handle them rather than filter
+  them out.
+
+  **An alternative-name row is not another place.** alt_of non-null means the
+  row is another spelling of the division its feature_id names, and the
+  primary row for that division is elsewhere in the file. A result list that
+  does not dedupe by feature_id shows the same city once per language.
+
+  **geometry and geometry_ref are null on every alternative-name row.** They
+  are on the primary row for the same feature_id. Repeating a 21-byte WKB
+  point and a row reference on 2,031,617 rows cost about 60 MB and said
+  nothing new.
+
+  **Two deliberate divergences from the index contract.** The contract
+  describes bbox as four DOUBLEs; this index stores float32 rounded outward,
+  which halves the cost of four coordinates a row and keeps the containment
+  property. The contract describes a plain Parquet index with no geometry
+  column; this file is GeoParquet with a point, because a point is what lets
+  the collection render in a data browser and carry styles, and the bbox
+  covering it declares is a valid superset of the point. The CC-BY sibling
+  index makes both the same choices, so a consumer that reads one reads the
+  other. Both should be confirmed against the geocoder's schema validation
+  before either index is treated as stable.
+
+  **names.rules is not indexed.** Overture publishes perspective-dependent
+  name variants there, averaging 73.7 entries on a country and 15.1 on a
+  region, and a contested name is exactly the kind of name that lives in it.
+  Indexing those as plain alternatives would return a political claim as an
+  ordinary synonym, and Overture's perspectives property, which says whose
+  perspective a variant belongs to, is NULL on every division row of this
+  release. The omission is a decision, not an oversight, and it is the first
+  thing to revisit if the release starts populating perspectives.
+
+  **A name is not an identifier.** name_dupes counts how many rows share a
+  folded name worldwide and across levels, and the most repeated folded name
+  in this index is shared by thousands of rows. Disambiguate with
+  parent_name, level, country, population and prominence.
+
+  **name_norm folding is lossy on purpose, and is not a collation.** It strips
+  combining marks, so Unión and Union collide, which is what makes
+  accent-insensitive search work and also inflates name_dupes for such pairs.
+  It does not transliterate: a Han, Arabic or Cyrillic name is only
+  lowercased, so it is findable in its own script and, separately, through
+  whichever names.common entry romanized it.
+
+  **Prefix search is cheap; substring search is not.** The sort makes a
+  leading prefix a range read over one or two row groups. A fragment in the
+  middle of a name has to scan the whole name_norm column.
+
+  **The index is far too large to load whole.** Use the range path, or query
+  it server-side with DuckDB. The CC-BY counterpart's 3.6 MB index is the one
+  designed to be full-loaded in a browser.
+
+  **level is this catalog's mapping, not Overture's admin_level.** Overture
+  files a dependency at admin_level 1 and leaves admin_level null below
+  county.
+
+  **name_lang is null on every primary row**, because Overture does not state
+  the language of names.primary. It is usually but not always the local
+  language.
+
+  **name_lang on an alternative row is one of possibly several languages that
+  agree on that spelling.** The code kept is the first in alphabetical order,
+  which is arbitrary but stable across rebuilds; name_lang_count says how many
+  there were. A client that needs the full set has to read names.common from
+  the Overture release.

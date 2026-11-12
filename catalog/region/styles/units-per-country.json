@@ -1,0 +1,50 @@
+{
+  "version": 8,
+  "name": "Regions in this country",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../region.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "region-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "region",
+      "paint": {
+        "fill-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "country_units"
+            ],
+            0
+          ],
+          "#eef4e0",
+          20,
+          "#a6cc72",
+          50,
+          "#74a84a",
+          100,
+          "#2a4d1c"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "region-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "region",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

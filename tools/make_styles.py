@@ -76,11 +76,28 @@ def outline(layer: str, color: str = "rgba(30,30,30,0.55)") -> dict:
     }
 
 
+def ramp(palette: list[str], bands: int) -> list[str]:
+    """`bands` colours sampled evenly from a ramp, ends included.
+
+    The break generator drops a break that brackets no feature, so a style can
+    end up with fewer bands than the ramp has colours. Sampling keeps the full
+    tonal range instead of truncating the dark end, which is what a legend
+    needs: the lightest and the darkest band stay distinguishable however many
+    bands there are.
+    """
+    if bands >= len(palette):
+        return list(palette)
+    if bands == 1:
+        return [palette[len(palette) // 2]]
+    last = len(palette) - 1
+    return [palette[round(i * last / (bands - 1))] for i in range(bands)]
+
+
 def step(field: str, palette: list[str], breaks: list[float]) -> list:
-    """A step expression: palette[0] below breaks[0], then one per break."""
-    assert len(palette) == len(breaks) + 1, (field, len(palette), len(breaks))
-    expr: list = ["step", ["coalesce", ["get", field], 0], palette[0]]
-    for value, color in zip(breaks, palette[1:]):
+    """A step expression: colours[0] below breaks[0], then one per break."""
+    colours = ramp(palette, len(breaks) + 1)
+    expr: list = ["step", ["coalesce", ["get", field], 0], colours[0]]
+    for value, color in zip(breaks, colours[1:]):
         expr += [value, color]
     return expr
 

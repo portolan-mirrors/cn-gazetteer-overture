@@ -1,0 +1,185 @@
+{
+  "spec": "cnmw-index/1.0",
+  "source": "overture-divisions",
+  "experimental": true,
+  "index_version": "2026-11-12T00:00:00Z",
+  "catalog_version": "overture-divisions-2026-10-21.0",
+  "overture_release": "2026-10-21.0",
+  "rows": 5604413,
+  "primary_rows": 3572796,
+  "alt_rows": 2031617,
+  "levels": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "level_names": {
+    "0": [
+      "country",
+      "dependency"
+    ],
+    "1": [
+      "region"
+    ],
+    "2": [
+      "county"
+    ],
+    "3": [
+      "localadmin"
+    ],
+    "4": [
+      "locality"
+    ]
+  },
+  "stats_truncated": false,
+  "dropped_unnamed": 0,
+  "index": {
+    "url": "./overture_division_names.parquet",
+    "size": 427507857,
+    "checksum": "1220388e385f86f9b34aea67df12910019f72ad6d4aad54971704f8fff085b644d62",
+    "row_groups": 876,
+    "row_group_rows": 6400,
+    "sorted_by": [
+      "name_norm",
+      "level",
+      "country",
+      "feature_id"
+    ]
+  },
+  "boundaries": [
+    {
+      "level": 0,
+      "collection": "country",
+      "feature_id_column": "division_id",
+      "geometry_column": "geometry",
+      "row_group_rows": 8,
+      "full": {
+        "url": "../country/overture_country.parquet",
+        "size": 53887574,
+        "row_count": 272,
+        "row_groups": 34
+      },
+      "display": {
+        "url": "../country/overture_country_display.parquet",
+        "size": 5471919,
+        "row_count": 272,
+        "row_groups": 34
+      }
+    },
+    {
+      "level": 1,
+      "collection": "region",
+      "feature_id_column": "division_id",
+      "geometry_column": "geometry",
+      "row_group_rows": 26,
+      "full": {
+        "url": "../region/overture_region.parquet",
+        "size": 242197071,
+        "row_count": 3929,
+        "row_groups": 152
+      },
+      "display": {
+        "url": "../region/overture_region_display.parquet",
+        "size": 25099168,
+        "row_count": 3929,
+        "row_groups": 152
+      }
+    },
+    {
+      "level": 2,
+      "collection": "county",
+      "feature_id_column": "division_id",
+      "geometry_column": "geometry",
+      "row_group_rows": 96,
+      "full": {
+        "url": "../county/overture_county.parquet",
+        "size": 680955758,
+        "row_count": 38937,
+        "row_groups": 406
+      },
+      "display": {
+        "url": "../county/overture_county_display.parquet",
+        "size": 117937697,
+        "row_count": 38937,
+        "row_groups": 406
+      }
+    },
+    {
+      "level": 3,
+      "collection": "localadmin",
+      "feature_id_column": "division_id",
+      "geometry_column": "geometry",
+      "row_group_rows": 240,
+      "full": {
+        "url": "../localadmin/overture_localadmin.parquet",
+        "size": 149503939,
+        "row_count": 21502,
+        "row_groups": 90
+      },
+      "display": {
+        "url": "../localadmin/overture_localadmin_display.parquet",
+        "size": 56428419,
+        "row_count": 21502,
+        "row_groups": 90
+      }
+    },
+    {
+      "level": 4,
+      "collection": "locality",
+      "feature_id_column": "division_id",
+      "geometry_column": "geometry",
+      "row_group_rows": 960,
+      "full": {
+        "url": "../locality/overture_locality.parquet",
+        "size": 1315997215,
+        "row_count": 556094,
+        "row_groups": 580
+      },
+      "display": {
+        "url": "../locality/overture_locality_display.parquet",
+        "size": 912943874,
+        "row_count": 556094,
+        "row_groups": 580
+      }
+    }
+  ],
+  "attribution": [
+    {
+      "text": "\u00a9 OpenStreetMap contributors. Available under the Open Database License.",
+      "license": "ODbL-1.0",
+      "url": "https://www.openstreetmap.org/copyright",
+      "share_alike": true
+    },
+    {
+      "text": "Overture Maps Foundation, overturemaps.org",
+      "license": "ODbL-1.0",
+      "url": "https://overturemaps.org/",
+      "share_alike": true
+    },
+    {
+      "text": "geoBoundaries. Available under CC BY 4.0.",
+      "license": "CC-BY-4.0",
+      "url": "https://www.geoboundaries.org/",
+      "share_alike": false
+    },
+    {
+      "text": "Esri Community Maps contributors. Available under CC BY 4.0.",
+      "license": "CC-BY-4.0",
+      "url": "https://communitymaps.arcgis.com/home/",
+      "share_alike": false
+    },
+    {
+      "text": "Land Information New Zealand (LINZ). Available under CC BY 4.0.",
+      "license": "CC-BY-4.0",
+      "url": "https://www.linz.govt.nz/",
+      "share_alike": false
+    }
+  ],
+  "share_alike": true,
+  "build": {
+    "pycountry": "26.2.16",
+    "alt_level_ceiling": 4
+  }
+}

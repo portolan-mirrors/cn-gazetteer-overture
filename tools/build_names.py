@@ -99,6 +99,25 @@ ALT_LEVEL_CEILING = 4
 # file. A multiple of the row group size, so every group is exactly full.
 BATCH_ROWS = NAMES_ROW_GROUP_ROWS * 128
 
+# The columns that get per-row-group min/max statistics, and no others.
+#
+# Statistics are not free at this scale. With statistics on all 19 columns the
+# footer came to 10,769,314 bytes, because a min and a max of `name`,
+# `parent_name`, `feature_id` and `alt_of` is four strings per row group and
+# there are thousands of row groups. A range-request client reads that footer
+# before it can read anything else, so it is the cost of the first keystroke.
+#
+# Only `name_norm` statistics are load-bearing: they are what a client
+# binary-searches, and the contract requires them untruncated. The rest here
+# are dictionary-encoded and a few bytes each, and they let a consumer prune
+# on level or country without decoding. Statistics on the large string columns
+# would prune nothing, because the file is sorted by `name_norm` and nothing
+# else, so their ranges overlap across every group.
+STATISTICS_COLUMNS = [
+    "name_norm", "level", "subtype", "country", "source", "has_boundary",
+    "name_lang", "name_lang_count", "name_dupes",
+]
+
 LEVEL_CASE = " ".join(
     f"WHEN '{subtype}' THEN {level}" for subtype, level in SUBTYPE_LEVEL.items()
 )
@@ -345,7 +364,7 @@ def write_index(con, *, started: float) -> dict:
                     schema,
                     compression="zstd",
                     compression_level=ZSTD_LEVEL,
-                    write_statistics=True,
+                    write_statistics=STATISTICS_COLUMNS,
                     write_page_index=True,
                     version="2.6",
                     sorting_columns=[

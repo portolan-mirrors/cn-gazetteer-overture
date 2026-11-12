@@ -1,0 +1,50 @@
+{
+  "version": 8,
+  "name": "Languages with a name for this division",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../localadmin.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "localadmin-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "localadmin",
+      "paint": {
+        "fill-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "name_langs"
+            ],
+            0
+          ],
+          "#edf0f2",
+          2,
+          "#a2b4c0",
+          5,
+          "#75909f",
+          20,
+          "#283d4a"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "localadmin-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "localadmin",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

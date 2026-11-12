@@ -1,0 +1,50 @@
+{
+  "version": 8,
+  "name": "Languages with a name for this county",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../county.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "county-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "county",
+      "paint": {
+        "fill-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "name_langs"
+            ],
+            0
+          ],
+          "#fdeae6",
+          2,
+          "#f49480",
+          10,
+          "#e05f49",
+          20,
+          "#78200f"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "county-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "county",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

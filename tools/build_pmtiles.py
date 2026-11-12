@@ -16,7 +16,7 @@ locality archive costs tiles nobody opens.
 
 Where the geometry comes from
 -----------------------------
-The five polygon archives are tiled from the **display** file, not the
+The five polygon archives are tiled from the **display** geometry, not the
 full-resolution one. Tippecanoe simplifies per zoom level anyway, and the
 display geometry is already a topology-preserving simplification of the same
 rings; feeding it the full-resolution Overture coastline instead means
@@ -25,6 +25,11 @@ an outward-buffered superset of the truth, so a tile boundary sits a fraction
 of a tolerance outside the real one, which at these zoom levels is well under
 a pixel. The GeoParquet asset is what a consumer uses when that matters, and
 every collection README says so.
+
+The attributes come from the **full** file, because the display file is a
+geometry companion and carries only what identifies a row. So this step joins
+the two on ``division_id`` into a scratch file under the staging work
+directory, tiles that, and deletes it. The scratch file is never published.
 """
 from __future__ import annotations
 
@@ -34,19 +39,30 @@ import sys
 from ovcommon import (
     COLLECTIONS,
     NAMES_PATH,
+    WORK,
+    boundary_path,
+    connect,
     display_path,
     human,
     pmtiles_path,
     run,
 )
 
-# Attributes carried into the tiles, per collection. Only what a style or a
-# popup reads: every extra field is repeated in every tile.
+# Attributes carried into the tiles. Only what a style or a popup reads, and
+# only where the collection has the column: every extra field is repeated in
+# every tile. tools/make_styles.py reads these same names, and
+# tests/test_styles.py is the gate that catches a drift between the two.
 POLYGON_FIELDS = [
     "division_id",
     "name",
     "subtype",
     "country",
+    "class",
+    "local_type",
+    "parent_name",
+    "country_units",
+    "population",
+    "name_langs",
     "area_km2",
 ]
 
@@ -129,21 +145,48 @@ def build(target: str) -> None:
         )
         return
 
-    src = display_path(target)
-    if not src.exists():
-        sys.exit(f"missing {src}; run tools/build_display.py first")
+    full, disp = boundary_path(target), display_path(target)
+    for path in (full, disp):
+        if not path.exists():
+            sys.exit(f"missing {path}; run the boundary and display builds first")
+
+    con = connect()
+    present = set(
+        con.sql(f"SELECT * FROM read_parquet('{full.as_posix()}') LIMIT 0").columns
+    )
+    fields = [f for f in POLYGON_FIELDS if f in present]
+    scratch = WORK / f"{target}.tiles.parquet"
+    scratch.unlink(missing_ok=True)
+    cols = ", ".join(f"f.{f}" for f in fields)
+    con.execute(
+        f"""COPY (
+              SELECT {cols}, d.geometry
+              FROM read_parquet('{full.as_posix()}') f
+              JOIN read_parquet('{disp.as_posix()}') d USING (division_id)
+            ) TO '{scratch.as_posix()}'
+            (FORMAT parquet, COMPRESSION zstd, COMPRESSION_LEVEL 3)"""
+    )
+    rows = con.execute(
+        f"SELECT count(*) FROM read_parquet('{scratch.as_posix()}')"
+    ).fetchone()[0]
+    con.close()
+    print(f"  joined {rows:,} rows with {len(fields)} attribute(s) for tiling")
+
     extra = list(POLYGON_ARGS)
     if target in ("locality", "localadmin", "county"):
         extra += DENSE_ARGS
-    tile(
-        src,
-        pmtiles_path(target),
-        layer=target,
-        name=f"Overture divisions {target}",
-        maxzoom=MAX_ZOOM[target],
-        fields=POLYGON_FIELDS,
-        extra=extra,
-    )
+    try:
+        tile(
+            scratch,
+            pmtiles_path(target),
+            layer=target,
+            name=f"Overture divisions {target}",
+            maxzoom=MAX_ZOOM[target],
+            fields=fields,
+            extra=extra,
+        )
+    finally:
+        scratch.unlink(missing_ok=True)
 
 
 def main(argv: list[str]) -> int:

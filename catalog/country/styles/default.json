@@ -1,0 +1,54 @@
+{
+  "version": 8,
+  "name": "Land area",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../country.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "country-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "country",
+      "paint": {
+        "fill-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "area_km2"
+            ],
+            0
+          ],
+          "#e8f1fa",
+          500,
+          "#bcd8ef",
+          5000,
+          "#80b4dd",
+          50000,
+          "#4a8bc2",
+          200000,
+          "#2a5f99",
+          1000000,
+          "#133a66"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "country-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "country",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

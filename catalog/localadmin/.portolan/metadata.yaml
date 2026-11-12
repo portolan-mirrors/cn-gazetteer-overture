@@ -1,0 +1,130 @@
+# Human-enriched metadata for the localadmin collection.
+#
+# Tracked in git, never published: tools/publish.py skips every
+# dot-directory. This is the canonical home for the facts below, and
+# README.md carries the human-facing rendering. Keep the two in step by
+# rerunning tools/make_readmes.py after any edit here.
+
+license: ODbL-1.0
+license_url: https://opendatacommons.org/licenses/odbl/
+
+attribution: >
+  © OpenStreetMap contributors. Available under the Open Database License.
+  Includes data from geoBoundaries, Esri Community Maps contributors and
+  Land Information New Zealand (LINZ), each available under CC BY 4.0.
+
+citation: >
+  Overture Maps Foundation, overturemaps.org. Divisions theme, release
+  2026-10-21.0, accessed 2026-11-12.
+
+source_url: https://docs.overturemaps.org/guides/divisions
+
+processing_notes: >
+  Built by tools/stage_source.py, tools/build_boundaries.py and
+  tools/build_display.py from Overture Maps divisions release
+  2026-10-21.0, staged on 2026-11-12 from
+  s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/ with
+  DuckDB 1.4.1 and httpfs, anonymous, region us-west-2. An Overture
+  release is immutable, so the release identifier pins the bytes and there
+  is no commit or checksum to carry.
+
+  Which rows. Every type=division_area row with subtype = 'localadmin' and
+  class = 'land', joined to its type=division row on division_id. The land
+  filter is what makes the join 1:1: Overture publishes a second class =
+  'maritime' polygon for a coastal division, which would give one GERS id
+  two geometries. Measured: 21,502 localadmin area rows in the release,
+  all of them land, over exactly 21,502 distinct division_id values.
+  tools/stage_source.py asserts the 1:1 property and refuses to publish
+  without it.
+
+  What a localadmin is. Overture defines it as the administrative level
+  that contains localities without having an independent authority of its
+  own: the French commune, the Indonesian kecamatan, the Swiss Gemeinde.
+  local_type carries the local word.
+
+  Columns. country is derived: ISO 3166-1 alpha-3 from Overture's alpha-2
+  through the official ISO 3166-1 table packaged with pycountry 26.2.16.
+  Overture's alpha-2 is kept unchanged in country_iso2. area_km2 and
+  perimeter_km come from DuckDB's spheroidal measures on WGS 84 with
+  coordinates flipped to latitude-first, which those functions require.
+  compactness is the Polsby-Popper ratio. vertices is ST_NPoints.
+  country_units is a window count of rows sharing country within this
+  file. parent_name and parent_subtype come from a self-join on
+  parent_division_id over the whole type=division release.
+
+  Dropped as all-null at this level: class, prominence, admin_level.
+
+  Layout. 21,502 rows, Hilbert-ordered over the whole globe, GeoParquet
+  1.1 with a bbox covering struct, zstd level 15, Parquet page index, 90
+  row groups of 240 rows. The row group size targets bytes rather than
+  rows: at the measured 6.8 KB per row that is 1.6 MB per group, so a
+  client that wants one division's geometry fetches about that much rather
+  than the whole 142.6 MB file. gpq validate passes 20 of 20 checks.
+
+  Display file. Simplified with ST_SimplifyPreserveTopology and then
+  buffered outward by the same tolerance, at 0.4% of each feature's own
+  bounding-box diagonal capped at 0.002 degrees, which here ranged from
+  1.02e-05 to 0.002 degrees. A flat tolerance was measured first and
+  rejected: it cannot serve both the largest and the smallest feature of a
+  collection, and at the country level a flat 0.03 degrees put one
+  dependency's display polygon at 81.6% of its true area. With the
+  per-feature tolerance, 20,610 of 21,502 features contain their
+  full-resolution polygon exactly, none falls below 99%, and the worst is
+  0.994748 (Comuna de Villa Candelaria Norte).
+
+known_issues: >
+  **EXPERIMENTAL.** The schema may change without notice and the Source
+  Cooperative repository is unlisted. Pin the catalog_version in
+  names/index.json if you depend on this.
+
+  **ODbL share-alike.** A database derived from this collection has to be
+  released under ODbL, and an application that shows it has to display the
+  attribution. The CC-BY-4.0 counterpart at
+  https://source.coop/portolan-mirrors/geoboundaries-catalog carries no
+  such obligation.
+
+  **Join on division_id, never on id.** Both are GERS identifiers. id
+  belongs to the division_area polygon; division_id belongs to the
+  division, and division_id is what the names collection publishes as
+  feature_id. A join on id finds nothing.
+
+  **This is the land outline, not the territorial extent.** Overture's
+  class = 'maritime' polygon is not carried, so a reverse geocode of an
+  offshore point will not land in any row here.
+
+  **This level is not a seamless coverage.** Overture publishes a division
+  where a division exists. There is no gap-filling from a coarser level,
+  so a country with no divisions at this level simply has no rows, and the
+  polygons here do not tile the globe. At this level that matters more
+  than anywhere else: Overture publishes localadmin divisions for 19
+  countries and none at all for the other 230 in the release. The 19, as
+  ISO 3166-1 alpha-3: ARG, AUT, BEL, BFA, CHE, CHN, CIV, CZE, FRA, HTI,
+  IDN, IRN, IRQ, JOR, MAR, SEN, SLE, SVK, SYR. A client must not read an
+  empty result here as 'no such place'.
+
+  **Disputed boundaries carry no perspective.** Overture models a
+  contested boundary through its perspectives property, and that property
+  is NULL on all 4,700,999 division rows of this release, so there is
+  exactly one representation of every division here. This catalog
+  publishes whatever Overture published; it makes no territorial claim and
+  offers no way to select a perspective.
+
+  **population is sparse and undated.** 7,523 of 21,502 rows have one.
+  Overture states no vintage per value. Use it as a relevance weight, not
+  as a census figure.
+
+  **Row order does not help a lookup by id.** The file is Hilbert-ordered
+  for spatial queries, so the division_id statistics per row group
+  overlap. Use the geometry_ref in the names collection, which names the
+  row group directly, or read the division_id column chunks, which are a
+  few per cent of the file.
+
+  **The display file is deliberately larger than the truth.** Neighbouring
+  features overlap along a shared edge, so a point can fall inside two of
+  them, and an area computed from it is too large. Draw and filter with
+  it; measure and clip with the full-resolution file.
+
+  **admin_level is absent.** Overture requires it only down to county, and
+  it is null on every localadmin division in the release, so the column is
+  dropped rather than published empty. Use this catalog's own level, 3,
+  which the names collection publishes.

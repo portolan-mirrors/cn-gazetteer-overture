@@ -1,0 +1,54 @@
+{
+  "version": 8,
+  "name": "Land area",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../locality.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "locality-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "locality",
+      "paint": {
+        "fill-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "area_km2"
+            ],
+            0
+          ],
+          "#fdeaf3",
+          0.5,
+          "#f8c2dd",
+          1,
+          "#ec8dbe",
+          5,
+          "#d55a9b",
+          20,
+          "#ab3273",
+          50,
+          "#6e1246"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "locality-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "locality",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "version": 8,
+  "name": "Settlement class",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../locality.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "locality-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "locality",
+      "paint": {
+        "fill-color": [
+          "match",
+          [
+            "get",
+            "class"
+          ],
+          "village",
+          "#f8c2dd",
+          "hamlet",
+          "#fdeaf3",
+          "town",
+          "#d55a9b",
+          "city",
+          "#6e1246",
+          "#cfcfcf"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "locality-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "locality",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

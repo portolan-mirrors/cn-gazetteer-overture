@@ -1,0 +1,54 @@
+{
+  "version": 8,
+  "name": "Land area",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../county.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "county-fill",
+      "type": "fill",
+      "source": "data",
+      "source-layer": "county",
+      "paint": {
+        "fill-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "area_km2"
+            ],
+            0
+          ],
+          "#fdeae6",
+          100,
+          "#fbc4b6",
+          500,
+          "#f49480",
+          1000,
+          "#e05f49",
+          2000,
+          "#b23c28",
+          5000,
+          "#78200f"
+        ],
+        "fill-opacity": 0.85,
+        "fill-outline-color": "rgba(40,40,40,0.35)"
+      }
+    },
+    {
+      "id": "county-line",
+      "type": "line",
+      "source": "data",
+      "source-layer": "county",
+      "paint": {
+        "line-color": "rgba(30,30,30,0.55)",
+        "line-width": 0.4
+      }
+    }
+  ]
+}

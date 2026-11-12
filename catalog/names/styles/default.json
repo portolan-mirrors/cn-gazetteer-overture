@@ -1,0 +1,58 @@
+{
+  "version": 8,
+  "name": "Indexed names by level",
+  "sources": {
+    "data": {
+      "type": "vector",
+      "url": "pmtiles://../names.pmtiles"
+    }
+  },
+  "layers": [
+    {
+      "id": "names-circle",
+      "type": "circle",
+      "source": "data",
+      "source-layer": "names",
+      "paint": {
+        "circle-color": [
+          "step",
+          [
+            "coalesce",
+            [
+              "get",
+              "level"
+            ],
+            0
+          ],
+          "#e0ecab",
+          1,
+          "#c2da72",
+          2,
+          "#9dbf45",
+          3,
+          "#75932c",
+          4,
+          "#4a6118"
+        ],
+        "circle-radius": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          0,
+          0.7,
+          4,
+          1.8,
+          8,
+          4.0
+        ],
+        "circle-opacity": 0.8,
+        "circle-stroke-width": 0.2,
+        "circle-stroke-color": "rgba(30,30,30,0.45)"
+      }
+    }
+  ]
+}
