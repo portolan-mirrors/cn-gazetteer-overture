@@ -255,17 +255,27 @@ def load_specs() -> None:
 
 def main() -> int:
     load_specs()
-    written = 0
+    written = removed = 0
     for collection, styles in SPECS.items():
         out_dir = CATALOG / collection / "styles"
         out_dir.mkdir(parents=True, exist_ok=True)
+        keep = set()
         for slug, title, doc in styles:
             doc["name"] = title
             path = out_dir / f"{slug}.json"
             path.write_text(json.dumps(doc, indent=2) + "\n")
+            keep.add(path.name)
             written += 1
             print(f"  {path.relative_to(CATALOG.parent)}")
-    print(f"{written} style files written")
+        # Renaming a style leaves the old file behind, and an orphan style
+        # publishes without any collection.json referencing it. The directory
+        # is output, so it is made to match the spec rather than added to.
+        for stale in sorted(out_dir.glob("*.json")):
+            if stale.name not in keep:
+                stale.unlink()
+                removed += 1
+                print(f"  removed {stale.relative_to(CATALOG.parent)}")
+    print(f"{written} style files written, {removed} stale file(s) removed")
     return 0
 
 
