@@ -4,7 +4,7 @@
 > **This catalog is EXPERIMENTAL.** The schema may change without notice, the
 > Source Cooperative repository that serves it is unlisted, and the column
 > contract it publishes is still being negotiated with its consumer. Pin the
-> `catalog_version` in [names/index.json](names/index.json) if you depend on
+> `catalog_version` in [index.json](names/index.json) if you depend on
 > it, and expect to rebuild.
 
 A search sidecar, not a boundary dataset. One row per Overture division, plus
@@ -241,17 +241,18 @@ from the Overture release are in
 ## Known issues
 
 **EXPERIMENTAL.** The schema may change without notice and the Source
-Cooperative repository is unlisted. Pin the catalog_version in index.json if
-you depend on this.
+Cooperative repository is unlisted. Pin the catalog_version in
+[index.json](index.json) if you depend on this.
 
 **ODbL share-alike.** This index is a database. A database derived from it
 has to be released under ODbL, and an application that shows results from it
-has to display the attribution. index.json sets share_alike: true on every
+has to display the attribution. [index.json](index.json) sets
+share_alike: true on every
 ODbL entry in its attribution array so a widget can surface the obligation
-without reading this file. The CC-BY-4.0 counterpart at
-https://source.coop/portolan-mirrors/geoboundaries-catalog carries no such
-obligation, and a geocoder configured against it needs no share-alike
-notice.
+without reading this file. The [CC-BY-4.0
+counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog)
+carries no such obligation, and a geocoder configured against it needs no
+share-alike notice.
 
 **This is a sidecar, not a boundary dataset.** The geometry column is one
 point per division, for a marker. The division's shape lives in the country,

@@ -4,7 +4,7 @@
 > **This catalog is EXPERIMENTAL.** The schema may change without notice, the
 > Source Cooperative repository that serves it is unlisted, and the column
 > contract it publishes is still being negotiated with its consumer. Pin the
-> `catalog_version` in [names/index.json](names/index.json) if you depend on
+> `catalog_version` in [index.json](names/index.json) if you depend on
 > it, and expect to rebuild.
 
 Overture Maps divisions, release `2026-10-21.0`, republished as cloud-native
@@ -77,14 +77,18 @@ widgets project implements it:
    current viewport.
 4. **Selection, drawn instantly.** The chosen row carries a GERS `feature_id`,
    a bbox to fly to, a point to mark, and an advisory `geometry_ref` of file,
-   row group and row. One range read of the **display** file at that row group
-   returns a few kilobytes of outward-buffered outline, which draws before the
-   camera has finished moving.
+   row group and row. The client range-reads that one row group of the
+   **display** file, 157 KB at the country level and 1.5 MB at the locality
+   level, and decodes one outline out of it: 19.6 KiB for a country, 1.6 KiB
+   for a village. The outline is the outward-buffered one, so it draws before
+   the camera has finished moving and it never shows less ground than the
+   division covers.
 5. **Full resolution in the background.** The same `geometry_ref` indexes the
    full-resolution file, because the two hold the same rows in the same groups.
-   The client swaps the geometry in when it arrives, and verifies that the
-   `division_id` it decoded equals the `feature_id` it asked for before it
-   trusts either.
+   That read is 1.5 to 1.7 MB, one row group, and the client swaps the geometry
+   in when it arrives. It verifies that the `division_id` it decoded equals the
+   `feature_id` it asked for before it trusts either file, because
+   `geometry_ref` is a hint and only the `catalog_version` makes it valid.
 6. **The boundary does work.** That polygon is then the spatial filter for any
    other cloud-native dataset: a GeoParquet of field boundaries, a COG, a
    PMTiles archive. Filter with the display geometry, which over-selects on
@@ -162,8 +166,10 @@ multilingual names.
 Overture Maps divisions, release `2026-10-21.0`, staged from
 `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/` on
 2026-11-12. A release is immutable, so the release identifier alone pins the
-bytes; there is no commit or checksum to carry. Overture's release index is at
-https://docs.overturemaps.org/release/latest/ .
+bytes; there is no commit or checksum to carry. Overture lists every release in
+its [release index](https://docs.overturemaps.org/release/latest/).
 
-The pipeline that built this, the per-collection provenance records and the
-issue tracker are at https://github.com/portolan-mirrors/cn-geocoder-overture .
+The [source
+repository](https://github.com/portolan-mirrors/cn-geocoder-overture) holds the
+pipeline that built this, the per-collection provenance records and the issue
+tracker.

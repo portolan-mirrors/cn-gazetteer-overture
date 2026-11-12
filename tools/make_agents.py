@@ -69,7 +69,12 @@ INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;
 Every file here is readable in place over HTTPS range requests. No
 credentials, no API, no server."""
 
-LICENSE_WARNING = f"""> [!IMPORTANT]
+def license_warning(prefix: str = "../") -> str:
+    """The licence and status banner, with the manifest link relative."""
+    return LICENSE_WARNING_TEMPLATE.replace("{PREFIX}", prefix)
+
+
+LICENSE_WARNING_TEMPLATE = f"""> [!IMPORTANT]
 > **ODbL-1.0, share-alike.** A database you derive from this collection has to
 > be offered under ODbL as well, and anything you show has to carry
 > `© OpenStreetMap contributors. Available under the Open Database License.`
@@ -79,7 +84,7 @@ LICENSE_WARNING = f"""> [!IMPORTANT]
 > [!WARNING]
 > **EXPERIMENTAL.** The schema may change without notice. Pin the
 > `catalog_version` (`{CATALOG_VERSION}`) from
-> [index.json](../names/index.json) if you depend on it."""
+> [index.json]({{PREFIX}}names/index.json) if you depend on it."""
 
 
 @dataclass
@@ -473,7 +478,7 @@ def boundary_agents(con, collection: str) -> str:
         "",
         TIER_NOTE,
         "",
-        LICENSE_WARNING,
+        license_warning("../"),
         "",
         "## Overview",
         "",
@@ -614,7 +619,7 @@ def names_agents(con) -> str:
         "",
         TIER_NOTE,
         "",
-        LICENSE_WARNING,
+        license_warning("../"),
         "",
         "## Overview",
         "",
@@ -811,7 +816,7 @@ def catalog_agents(con) -> str:
         "",
         TIER_NOTE,
         "",
-        LICENSE_WARNING,
+        license_warning(""),
         "",
         "## What is here",
         "",

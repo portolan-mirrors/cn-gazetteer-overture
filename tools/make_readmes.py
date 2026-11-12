@@ -47,13 +47,20 @@ SIBLING = "https://source.coop/portolan-mirrors/geoboundaries-catalog"
 SIBLING_REPO = "https://github.com/portolan-mirrors/geoboundaries-catalog"
 REPO_URL = "https://github.com/portolan-mirrors/cn-geocoder-overture"
 
-EXPERIMENTAL_BANNER = """> [!WARNING]
-> **This catalog is EXPERIMENTAL.** The schema may change without notice, the
-> Source Cooperative repository that serves it is unlisted, and the column
-> contract it publishes is still being negotiated with its consumer. Pin the
-> `catalog_version` in [names/index.json](names/index.json) if you depend on
-> it, and expect to rebuild.
-"""
+def experimental_banner(prefix: str = "") -> str:
+    """The warning every page carries, with the manifest link relative to it."""
+    return (
+        "> [!WARNING]\n"
+        "> **This catalog is EXPERIMENTAL.** The schema may change without "
+        "notice, the\n"
+        "> Source Cooperative repository that serves it is unlisted, and the "
+        "column\n"
+        "> contract it publishes is still being negotiated with its consumer. "
+        "Pin the\n"
+        f"> `catalog_version` in [index.json]({prefix}names/index.json) if you "
+        "depend on\n"
+        "> it, and expect to rebuild.\n"
+    )
 
 LICENSE_BLOCK = f"""## License and attribution
 
@@ -243,7 +250,7 @@ def boundary_readme(collection: str, docs: dict, cont: dict) -> str:
     lines = [
         f"# {doc['title']}",
         "",
-        EXPERIMENTAL_BANNER,
+        experimental_banner("../"),
         OVERVIEW[collection],
         "",
         WHY_IT_MATTERS[collection],
@@ -255,7 +262,8 @@ def boundary_readme(collection: str, docs: dict, cont: dict) -> str:
         "| | |",
         "|---|---|",
         f"| Rows | {full['rows']:,} |",
-        f"| Countries represented | {countries:,} |",
+        *([] if countries == full["rows"]
+          else [f"| Countries represented | {countries:,} |"]),
         f"| Search index level | {level} |",
         f"| GeoParquet, full resolution | {human(full['size'])}, "
         f"{full['row_groups']:,} row groups of "
@@ -377,11 +385,12 @@ def boundary_readme(collection: str, docs: dict, cont: dict) -> str:
         "changes, drops and adds are in "
         "[changes-from-upstream.md](../changes-from-upstream.md).",
         "",
-        f"- Overture divisions guide: {DOCS_DIVISIONS}",
+        f"- Overture's own [divisions guide]({DOCS_DIVISIONS}), which "
+        "defines every subtype and states its coverage.",
         f"- Schema, carried as an asset: "
         f"[division.schema.yaml](../_assets/overture/division.schema.yaml), "
         f"[division_area.schema.yaml](../_assets/overture/division_area.schema.yaml)",
-        f"- Pipeline and issue tracker: {REPO_URL}",
+        f"- The [pipeline and issue tracker]({REPO_URL}) for this catalog.",
         "",
         "## Known issues",
         "",
@@ -442,7 +451,7 @@ def names_readme(docs: dict) -> str:
     lines = [
         f"# {doc['title']}",
         "",
-        EXPERIMENTAL_BANNER,
+        experimental_banner(""),
         "A search sidecar, not a boundary dataset. One row per Overture "
         "division, plus one row per distinct alternative spelling of that "
         "division's name, sorted by a folded form of the name.",
@@ -690,7 +699,7 @@ def catalog_readme(docs: dict) -> str:
     return "\n".join([
         "# EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",
         "",
-        EXPERIMENTAL_BANNER,
+        experimental_banner(""),
         "Overture Maps divisions, release "
         f"`{RELEASE}`, republished as cloud-native GeoParquet and PMTiles for "
         "a browser geocoder: five boundary levels from country down to "
@@ -768,15 +777,19 @@ def catalog_readme(docs: dict) -> str:
         "current viewport.",
         "4. **Selection, drawn instantly.** The chosen row carries a GERS "
         "`feature_id`, a bbox to fly to, a point to mark, and an advisory "
-        "`geometry_ref` of file, row group and row. One range read of the "
-        "**display** file at that row group returns a few kilobytes of "
-        "outward-buffered outline, which draws before the camera has "
-        "finished moving.",
+        "`geometry_ref` of file, row group and row. The client range-reads "
+        "that one row group of the **display** file, 157 KB at the country "
+        "level and 1.5 MB at the locality level, and decodes one outline out "
+        "of it: 19.6 KiB for a country, 1.6 KiB for a village. The outline is "
+        "the outward-buffered one, so it draws before the camera has finished "
+        "moving and it never shows less ground than the division covers.",
         "5. **Full resolution in the background.** The same `geometry_ref` "
         "indexes the full-resolution file, because the two hold the same rows "
-        "in the same groups. The client swaps the geometry in when it "
-        "arrives, and verifies that the `division_id` it decoded equals the "
-        "`feature_id` it asked for before it trusts either.",
+        "in the same groups. That read is 1.5 to 1.7 MB, one row group, and "
+        "the client swaps the geometry in when it arrives. It verifies that "
+        "the `division_id` it decoded equals the `feature_id` it asked for "
+        "before it trusts either file, because `geometry_ref` is a hint and "
+        "only the `catalog_version` makes it valid.",
         "6. **The boundary does work.** That polygon is then the spatial "
         "filter for any other cloud-native dataset: a GeoParquet of field "
         "boundaries, a COG, a PMTiles archive. Filter with the display "
@@ -807,11 +820,11 @@ def catalog_readme(docs: dict) -> str:
         f"`s3://overturemaps-us-west-2/release/{RELEASE}/theme=divisions/` "
         f"on {EXTRACTION_DATE}. A release is immutable, so the release "
         "identifier alone pins the bytes; there is no commit or checksum to "
-        "carry. Overture's release index is at "
-        "https://docs.overturemaps.org/release/latest/ .",
+        "carry. Overture lists every release in its "
+        "[release index](https://docs.overturemaps.org/release/latest/).",
         "",
-        f"The pipeline that built this, the per-collection provenance records "
-        f"and the issue tracker are at {REPO_URL} .",
+        f"The [source repository]({REPO_URL}) holds the pipeline that built "
+        "this, the per-collection provenance records and the issue tracker.",
         "",
     ])
 

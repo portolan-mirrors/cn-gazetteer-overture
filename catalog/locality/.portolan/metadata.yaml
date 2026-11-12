@@ -81,13 +81,12 @@ processing_notes: >
 known_issues: >
   **EXPERIMENTAL.** The schema may change without notice and the Source
   Cooperative repository is unlisted. Pin the catalog_version in
-  names/index.json if you depend on this.
+  [index.json](../names/index.json) if you depend on this.
 
   **ODbL share-alike.** A database derived from this collection has to be
   released under ODbL, and an application that shows it has to display the
-  attribution. The CC-BY-4.0 counterpart at
-  https://source.coop/portolan-mirrors/geoboundaries-catalog carries no
-  such obligation.
+  attribution. The [CC-BY-4.0 counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog)
+  carries no such obligation.
 
   **Join on division_id, never on id.** Both are GERS identifiers. id
   belongs to the division_area polygon; division_id belongs to the

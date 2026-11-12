@@ -27,7 +27,7 @@ written; the output under each one is what it returned.
 > [!WARNING]
 > **EXPERIMENTAL.** The schema may change without notice. Pin the
 > `catalog_version` (`overture-divisions-2026-10-21.0`) from
-> [index.json](../names/index.json) if you depend on it.
+> [index.json](names/index.json) if you depend on it.
 
 ## What is here
 

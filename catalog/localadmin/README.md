@@ -4,7 +4,7 @@
 > **This catalog is EXPERIMENTAL.** The schema may change without notice, the
 > Source Cooperative repository that serves it is unlisted, and the column
 > contract it publishes is still being negotiated with its consumer. Pin the
-> `catalog_version` in [names/index.json](names/index.json) if you depend on
+> `catalog_version` in [index.json](../names/index.json) if you depend on
 > it, and expect to rebuild.
 
 The administrative level that contains localities without having an authority
@@ -169,24 +169,27 @@ the build refuses to publish if it is not. Full details of what this catalog
 changes, drops and adds are in
 [changes-from-upstream.md](../changes-from-upstream.md).
 
-- Overture divisions guide: https://docs.overturemaps.org/guides/divisions
+- Overture's own [divisions
+  guide](https://docs.overturemaps.org/guides/divisions), which defines every
+  subtype and states its coverage.
 - Schema, carried as an asset:
   [division.schema.yaml](../_assets/overture/division.schema.yaml),
   [division_area.schema.yaml](../_assets/overture/division_area.schema.yaml)
-- Pipeline and issue tracker:
-  https://github.com/portolan-mirrors/cn-geocoder-overture
+- The [pipeline and issue
+  tracker](https://github.com/portolan-mirrors/cn-geocoder-overture) for this
+  catalog.
 
 ## Known issues
 
 **EXPERIMENTAL.** The schema may change without notice and the Source
 Cooperative repository is unlisted. Pin the catalog_version in
-names/index.json if you depend on this.
+[index.json](../names/index.json) if you depend on this.
 
 **ODbL share-alike.** A database derived from this collection has to be
 released under ODbL, and an application that shows it has to display the
-attribution. The CC-BY-4.0 counterpart at
-https://source.coop/portolan-mirrors/geoboundaries-catalog carries no
-such obligation.
+attribution. The [CC-BY-4.0
+counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog)
+carries no such obligation.
 
 **Join on division_id, never on id.** Both are GERS identifiers. id
 belongs to the division_area polygon; division_id belongs to the

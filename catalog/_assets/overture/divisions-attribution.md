@@ -1,9 +1,10 @@
 # Overture Maps attribution for the divisions theme
 
-Copied verbatim on 2026-11-12 from the Overture documentation source at
-https://github.com/OvertureMaps/docs/blob/main/docs/_generated_attribution.mdx,
-which renders as https://docs.overturemaps.org/attribution/ . This file is
-the evidence behind the license and attribution statements in this catalog.
+Copied verbatim on 2026-11-12 from the [Overture documentation
+source](https://github.com/OvertureMaps/docs/blob/main/docs/_generated_attribution.mdx),
+which renders as [Attribution and
+Licensing](https://docs.overturemaps.org/attribution/). This file is the
+evidence behind the license and attribution statements in this catalog.
 
 ## Theme block, verbatim
 
@@ -17,7 +18,7 @@ the evidence behind the license and attribution statements in this catalog.
 
 ## Citation and the OpenStreetMap line, verbatim
 
-From https://docs.overturemaps.org/attribution/ :
+From [Attribution and Licensing](https://docs.overturemaps.org/attribution/):
 
 > If you are the author of a publication or research report that uses
 > Overture data, you may choose to add the following citation, including
