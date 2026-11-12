@@ -161,6 +161,7 @@ the same reason.
 |---|---|
 | `test_links.py` | Every relative link and asset href resolves |
 | `test_styles.py` | Every style class exists in the built data. Skips without the staging tree |
+| `test_index_refs.py` | Every sampled `geometry_ref` resolves to the right division in both the full and the display file, and the `catalog_version` agrees in all eleven places. Skips without the staging tree |
 | `test_publish.py` | Nothing outside `catalog/` can be uploaded |
 | `test_upload_data.py` | Only staged files with an allowed suffix upload |
 | `test_stac_valid.py` | Valid STAC 1.1.0, via `stac-check` |
