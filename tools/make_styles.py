@@ -174,13 +174,19 @@ def load_specs() -> None:
             "Population", "country",
             step("population", AZURE, BREAKS["country.population"]))),
     ]
+    # The default here is the language count rather than the area, because
+    # area at this level paints almost every region in the top band: a region
+    # is the largest sub-country unit, so most of them are large, and the
+    # small ones are islands that occupy few pixels. Both framings were
+    # rendered; the language count is the one that shows variation, and it is
+    # also what this catalog has that its CC-BY counterpart does not.
     SPECS["region"] = [
-        ("default", "Land area", polygon_style(
-            "Land area", "region",
-            step("area_km2", MOSS, BREAKS["region.area_km2"]))),
-        ("languages", "Languages with a name for this region", polygon_style(
+        ("default", "Languages with a name for this region", polygon_style(
             "Languages with a name for this region", "region",
             step("name_langs", MOSS, BREAKS["region.name_langs"]))),
+        ("area", "Land area", polygon_style(
+            "Land area", "region",
+            step("area_km2", MOSS, BREAKS["region.area_km2"]))),
         ("units-per-country", "Regions in this country", polygon_style(
             "Regions in this country", "region",
             step("country_units", MOSS, BREAKS["region.country_units"]))),

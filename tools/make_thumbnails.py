@@ -17,7 +17,11 @@ are matplotlib's.
 
 The polygon thumbnails are drawn from the **display** files, because loading
 half a million full-resolution locality outlines into GeoPandas to make a
-1200 px image is wasted work and the two files hold the same rows.
+1200 px image is wasted work. The column the style colours by comes from the
+full file, which is where the attributes live, and the two are matched by row
+offset rather than joined: `build_display.py` asserts on every run that row
+*i* of one is row *i* of the other, which is the same guarantee the search
+index's `geometry_ref` rests on.
 
 Framing. Each image is 3:2, matching the browser card. Six world maps in a
 card grid would be six indistinguishable cards, so only the country level is
@@ -38,7 +42,9 @@ matplotlib.use("Agg")
 import geopandas as gpd  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 
-from ovcommon import NAMES_PATH, display_path  # noqa: E402
+import pyarrow.parquet as pq  # noqa: E402
+
+from ovcommon import NAMES_PATH, boundary_path, display_path  # noqa: E402
 
 CATALOG = Path(__file__).resolve().parents[1] / "catalog"
 
@@ -49,9 +55,13 @@ WINDOWS: dict[str, dict] = {
         "label": "the whole world, the only full-extent frame",
     },
     "region": {
-        "window": (-130.0, 22.0, -60.0, 56.0), "aspect": 1.5,
+        "window": (-82.0, -56.0, -34.0, 13.0), "aspect": 1.5,
         "simplify": 0.02, "edge": 0.2,
-        "label": "North America, where region means state or province",
+        "label": (
+            "South America, where the language count spans the whole ramp: "
+            "Brazilian states are named in dozens of languages and Andean "
+            "departments in a handful"
+        ),
     },
     "county": {
         "window": (-11.0, 35.0, 31.0, 61.0), "aspect": 1.5,
@@ -145,7 +155,17 @@ def render(name: str) -> None:
         CATALOG / name / "styles" / "default.json"
     )
 
-    gdf = gpd.read_parquet(src, columns=[field, "geometry"])
+    if name == "names":
+        gdf = gpd.read_parquet(src, columns=[field, "geometry"])
+    else:
+        gdf = gpd.read_parquet(src, columns=["geometry"])
+        values = pq.read_table(boundary_path(name), columns=[field])
+        if values.num_rows != len(gdf):
+            sys.exit(
+                f"{name}: {values.num_rows:,} attribute rows against "
+                f"{len(gdf):,} display rows; the two files are not aligned"
+            )
+        gdf[field] = values.column(field).to_pandas()
     west, south, east, north = frame(
         tuple(gdf.total_bounds), spec["window"], spec["aspect"]
     )

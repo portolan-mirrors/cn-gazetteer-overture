@@ -1,6 +1,6 @@
 {
   "version": 8,
-  "name": "Land area",
+  "name": "Languages with a name for this region",
   "sources": {
     "data": {
       "type": "vector",
@@ -20,20 +20,18 @@
             "coalesce",
             [
               "get",
-              "area_km2"
+              "name_langs"
             ],
             0
           ],
           "#eef4e0",
-          100,
+          5,
           "#cfe3a9",
-          2000,
+          20,
           "#a6cc72",
-          5000,
-          "#74a84a",
-          20000,
+          50,
           "#4a7c32",
-          50000,
+          100,
           "#2a4d1c"
         ],
         "fill-opacity": 0.85,

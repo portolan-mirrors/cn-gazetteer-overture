@@ -659,8 +659,8 @@ def spec_list(facts: dict) -> list[dict]:
             composition="{region_rows} region",
             class_distribution=None,
             style_titles={
-                "default": "Land area",
-                "languages": "Languages with a name for this region",
+                "default": "Languages with a name for this region",
+                "area": "Land area",
                 "units-per-country": "Regions in this country",
                 "population": "Population",
             },

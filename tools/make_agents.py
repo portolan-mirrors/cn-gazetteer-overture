@@ -93,20 +93,37 @@ class Q:
 
 
 def table_ref(path: Path, *, public: bool) -> str:
+    """How a query names a file: a URL in the guide, a local path when run."""
     if public:
         rel = path.relative_to(path.parent.parent)
         return f"'{PUBLIC}/{rel.as_posix()}'"
     return f"read_parquet('{path.as_posix()}')"
 
 
+def path_ref(path: Path, *, public: bool) -> str:
+    """The same file as a bare quoted path, for a function that takes one.
+
+    `parquet_metadata` takes a path, not a table, so it cannot be handed the
+    `read_parquet(...)` form the other queries use.
+    """
+    if public:
+        rel = path.relative_to(path.parent.parent)
+        return f"'{PUBLIC}/{rel.as_posix()}'"
+    return f"'{path.as_posix()}'"
+
+
 def render(con, q: Q, tables: dict[str, Path]) -> list[str]:
     """Run a query and return the markdown block for it."""
-    doc_sql = q.sql.format(
-        **{k: table_ref(v, public=True) for k, v in tables.items()}
-    )
-    run_sql = q.sql.format(
-        **{k: table_ref(v, public=False) for k, v in tables.items()}
-    )
+    refs = {}
+    for key, value in tables.items():
+        refs[key] = table_ref(value, public=True)
+        refs[f"{key}_PATH"] = path_ref(value, public=True)
+    doc_sql = q.sql.format(**refs)
+    refs = {}
+    for key, value in tables.items():
+        refs[key] = table_ref(value, public=False)
+        refs[f"{key}_PATH"] = path_ref(value, public=False)
+    run_sql = q.sql.format(**refs)
     try:
         rel = con.sql(run_sql)
         columns = rel.columns
@@ -379,10 +396,11 @@ NAMES_QUERIES = [
     Q(
         "Row group statistics on name_norm, the thing the sort buys",
         "SELECT row_group_id AS row_group, num_values AS rows,\n"
-        "       stats_min AS first_name_norm, stats_max AS last_name_norm\n"
-        "FROM parquet_metadata({T})\n"
+        "       stats_min_value AS first_name_norm,\n"
+        "       stats_max_value AS last_name_norm\n"
+        "FROM parquet_metadata({T_PATH})\n"
         "WHERE path_in_schema = 'name_norm'\n"
-        "  AND row_group_id IN (0, 1, 2, 500, 1000);",
+        "  AND row_group_id IN (0, 1, 2, 400, 875);",
         note=(
             "Tight, non-overlapping alphabetical ranges. A client binary-"
             "searches these and reads one group. The ranges are untruncated, "
