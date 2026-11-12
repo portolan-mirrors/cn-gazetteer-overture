@@ -4,14 +4,36 @@
   "stac_extensions": [
     "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json"
   ],
-  "id": "example-catalog",
-  "title": "Example Catalog",
-  "description": "TODO(setup): one or two sentences saying what this catalog holds, who produced the data, and who it is for. A person and an agent both read this first.",
+  "id": "cn-geocoder-overture",
+  "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",
+  "description": "**EXPERIMENTAL.** The schema may change without notice and the Source Cooperative repository is unlisted. Do not build anything on it that you cannot rebuild.\n\nOverture Maps divisions, release 2026-10-21.0, republished as cloud-native GeoParquet and PMTiles for a browser geocoder. Five boundary collections carry one land polygon per division from country down to locality, each with a display-simplified companion sized for an instant draw. A sixth collection is a multilingual name search index: one row per division plus one row per distinct alternative spelling, sorted by a folded form of the name so a client resolves a typed prefix with HTTP range requests instead of a download.\n\nThis is the **ODbL opt-in counterpart** to [geoboundaries-catalog](https://source.coop/portolan-mirrors/geoboundaries-catalog), which carries the same shape of data under CC-BY-4.0. This one reaches further down the hierarchy and carries names in hundreds of languages; the price is ODbL **share-alike**, which means a database derived from it has to be released under ODbL too, and any application built on it has to display the attribution. Choose between them by license tolerance and coverage need.\n\nThis is a mirror; [Overture Maps Foundation](https://overturemaps.org/) is the authoritative source. Read the [agent guide](AGENTS.md) before you query it.",
+  "keywords": [
+    "experimental",
+    "geocoding",
+    "administrative boundaries",
+    "multilingual",
+    "Overture Maps",
+    "divisions",
+    "GERS",
+    "localities",
+    "ODbL",
+    "share-alike",
+    "GeoParquet",
+    "PMTiles"
+  ],
+  "updated": "2026-11-12T00:00:00Z",
   "links": [
+    {
+      "rel": "self",
+      "href": "https://data.source.coop/portolan-mirrors/cn-geocoder-overture/catalog.json",
+      "type": "application/json",
+      "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)"
+    },
     {
       "rel": "root",
       "href": "./catalog.json",
-      "type": "application/json"
+      "type": "application/json",
+      "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)"
     },
     {
       "rel": "describedby",
@@ -27,13 +49,102 @@
     },
     {
       "rel": "vcs",
-      "href": "https://github.com/TODO(setup)",
+      "href": "https://github.com/portolan-mirrors/cn-geocoder-overture",
       "title": "Source repository"
     },
     {
       "rel": "issues",
-      "href": "https://github.com/TODO(setup)/issues",
+      "href": "https://github.com/portolan-mirrors/cn-geocoder-overture/issues",
       "title": "Issue tracker"
+    },
+    {
+      "rel": "via",
+      "href": "https://docs.overturemaps.org/guides/divisions",
+      "type": "text/html",
+      "title": "Overture Maps divisions theme (upstream source)"
+    },
+    {
+      "rel": "cite-as",
+      "href": "https://overturemaps.org/",
+      "type": "text/html",
+      "title": "Overture Maps Foundation, overturemaps.org"
+    },
+    {
+      "rel": "license",
+      "href": "https://opendatacommons.org/licenses/odbl/",
+      "type": "text/html",
+      "title": "Open Database License (ODbL) v1.0"
+    },
+    {
+      "rel": "related",
+      "href": "https://source.coop/portolan-mirrors/geoboundaries-catalog",
+      "type": "text/html",
+      "title": "geoBoundaries CGAZ, the CC-BY-4.0 counterpart to this catalog"
+    },
+    {
+      "rel": "child",
+      "href": "./country/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Country and Dependency Boundaries"
+    },
+    {
+      "rel": "child",
+      "href": "./region/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Region Boundaries"
+    },
+    {
+      "rel": "child",
+      "href": "./county/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - County Boundaries"
+    },
+    {
+      "rel": "child",
+      "href": "./localadmin/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Local Administrative Boundaries"
+    },
+    {
+      "rel": "child",
+      "href": "./locality/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions - Locality Boundaries"
+    },
+    {
+      "rel": "child",
+      "href": "./names/collection.json",
+      "type": "application/json",
+      "title": "Overture Divisions Multilingual Name Search Index"
+    }
+  ],
+  "providers": [
+    {
+      "name": "Overture Maps Foundation",
+      "description": "Produces the divisions theme by conflating OpenStreetMap with geoBoundaries, Esri Community Maps and Land Information New Zealand, and publishes it under ODbL with a stable GERS identifier on every feature.",
+      "roles": [
+        "producer",
+        "licensor"
+      ],
+      "url": "https://overturemaps.org/"
+    },
+    {
+      "name": "OpenStreetMap contributors",
+      "description": "The primary source of the divisions theme, and the reason the theme carries ODbL share-alike.",
+      "roles": [
+        "producer",
+        "licensor"
+      ],
+      "url": "https://www.openstreetmap.org/copyright"
+    },
+    {
+      "name": "Portolan Mirrors",
+      "description": "Republishes the Overture divisions release as cloud-native GeoParquet, a display-simplified companion, PMTiles and a multilingual name search index. Adds no divisions and changes no attribute values.",
+      "roles": [
+        "processor",
+        "host"
+      ],
+      "url": "https://github.com/portolan-mirrors/cn-geocoder-overture"
     }
   ]
 }

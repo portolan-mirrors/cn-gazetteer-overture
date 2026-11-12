@@ -3,31 +3,44 @@
 # Everything under publish_dir is synced 1:1 to write_prefix. Data files are
 # never placed under publish_dir, so they cannot be published by accident.
 #
-# TODO(setup): replace the three sentinel values below. tools/publish.py
-# refuses to upload while any of them is unchanged.
+# Source Cooperative serves these objects. data.source.coop returns raw bytes.
+# source.coop renders the human-facing page. The repository is UNLISTED, which
+# changes none of these URLs: it keeps an experimental catalog out of the
+# public Source Cooperative index while its schema can still change.
 
-# The S3 URI uploads are written to. Copy it from your storage provider.
-write_prefix: s3://EXAMPLE-BUCKET/EXAMPLE-PREFIX
+# The S3 URI uploads are written to.
+#
+# This is the real bucket behind Source Cooperative, not the data.source.coop
+# gateway, because writes go through an IAM role Source Cooperative has
+# approved rather than per-account keys it issues. The two are the same bytes
+# through different doors: the repository is a key prefix here, where at the
+# gateway it was the bucket name.
+write_prefix: s3://us-west-2.opendata.source.coop/portolan-mirrors/cn-geocoder-overture
 
 # The public base URL that serves write_prefix. Every href in the catalog is
 # built from this, so it goes in the STAC JSON and write_prefix does not.
-public_base: https://example.invalid/EXAMPLE-PREFIX
+public_base: https://data.source.coop/portolan-mirrors/cn-geocoder-overture
 
 region: us-west-2
 
-# The named AWS profile the publisher uses. Optional. Leave it commented out
-# to use the default boto3 session. Source Cooperative issues per-account
-# credentials, so set the profile name you stored them under.
-# profile: my-source-coop-profile
+# No endpoint_url: write_prefix names the bucket in AWS S3 directly, so the
+# default endpoint is the correct one. Pointing this at data.source.coop while
+# write_prefix names the real bucket would send every request to the gateway
+# under a bucket name that does not exist there.
+
+# The named AWS profile the publisher uses. Optional -- CI leaves it unused,
+# because configure-aws-credentials puts the assumed role in the environment
+# and publish.py prefers that whenever AWS_ACCESS_KEY_ID is set.
+profile: portolan-mirrors
 
 # The directory that IS the published catalog, synced 1:1 to write_prefix.
 # Nothing outside it is ever uploaded.
 publish_dir: catalog
 
 # The staging directory that holds data files, read by tools/upload_data.py.
-# Optional. Leave it commented out if you stage no data. tools/publish.py
-# never reads this key, so setting it does not widen the publish boundary.
-# Data files are too large for git, so keep this directory out of the
-# repository or ignored by it. Only the suffixes in PUBLISHABLE_SUFFIXES
-# upload. See the allow-list in tools/upload_data.py.
-# data_dir: ../catalog-staging
+# tools/publish.py never reads this key, so setting it does not widen the
+# publish boundary. The build writes here, and tools/ovcommon.py takes the
+# same root from OV_STAGING. Only the suffixes in PUBLISHABLE_SUFFIXES
+# upload, so the staged Overture release under sources/ and the intermediates
+# under work/ stay out of the bucket although they sit in the same tree.
+data_dir: ../cn-geocoder-overture-staging/publish
