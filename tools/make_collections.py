@@ -40,6 +40,7 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from ovcommon import (
+    AZURE_HTTPS_THEME,
     CATALOG_VERSION,
     COLLECTIONS,
     COLLECTION_LEVEL,
@@ -50,15 +51,26 @@ from ovcommon import (
     EXTRACTION_DATE,
     NAMES_PATH,
     NAMES_ROW_GROUP_ROWS,
+    PUBLISH,
     RELEASE,
     RELEASE_NOTES,
     ROW_GROUP_ROWS,
+    S3_HTTPS_THEME,
+    S3_THEME,
+    UPSTREAM_BYTES,
+    UPSTREAM_FILES,
     WORK,
     boundary_path,
     display_path,
     pmtiles_path,
 )
 from build_pmtiles import MAX_ZOOM, NAMES_MAX_ZOOM
+from build_prominent import (
+    OUT as PROMINENT_PATH,
+    ROW_GROUP_ROWS as PROMINENT_ROW_GROUP_ROWS,
+)
+
+PROMINENT_NAME = PROMINENT_PATH.name
 
 REPO = Path(__file__).resolve().parents[1]
 CATALOG = REPO / "catalog"
@@ -98,7 +110,7 @@ PROVIDERS = [
             "attribute values."
         ),
         "roles": ["processor", "host"],
-        "url": "https://github.com/portolan-mirrors/cn-geocoder-overture",
+        "url": "https://github.com/portolan-mirrors/cn-gazetteer-overture",
     },
 ]
 
@@ -827,6 +839,27 @@ NAMES_COLUMNS = [
         ),
     },
     {
+        "name": "class",
+        "type": "string",
+        "description": (
+            "Attested. Overture's `class` on the division row: how settled a "
+            "locality is, one of `city`, `town`, `village` or `hamlet`. It is "
+            "**a ranking signal, not a filter**, and it is null above "
+            "locality: measured on this release, Overture populates it on "
+            "3,394,627 of 3,508,156 localities and on none of the 64,640 "
+            "divisions above them, so 113,529 localities have no class and "
+            "some of those are real cities. The distribution is hamlet "
+            "1,715,416, village 1,561,816, town 103,175, city 14,220, which "
+            "makes `class IN ('city', 'town')` 117,395 places out of 3.5 "
+            "million. It is in this index because ranking verification showed "
+            "a short prefix is otherwise dominated by alternative-language "
+            "rows of countries and regions -- Baghdad buried under Tajik and "
+            "Uzbek spellings of Bahamas -- and no other column separates a "
+            "city from a country that happens to share a prefix. `area_km2` "
+            "makes it worse, because a country always dwarfs a city."
+        ),
+    },
+    {
         "name": "country",
         "type": "string",
         "description": (
@@ -926,8 +959,15 @@ NAMES_COLUMNS = [
         "type": "int32",
         "description": (
             "Attested. Overture's `population` for the division where it has "
-            "one. Sparse, undated, and the single most useful ranking signal "
-            "for a locality search, where area is usually null."
+            "one, carried byte for byte. Undated, and **sparse in a way a "
+            "ranker has to handle explicitly**: measured on this release, "
+            "Overture populates it on 79.9% of countries (175 of 219), 30.6% "
+            "of regions, 21.3% of counties, 35.0% of localadmins and 17.7% of "
+            "localities (621,090 of 3,508,156). Null means unknown, never "
+            "zero -- a client that coalesces it to 0 sorts every unpopulated "
+            "place last, which at level 4 is five rows in six. Use it as a "
+            "relevance weight alongside `prominence` and `class`, not as a "
+            "census figure."
         ),
     },
     {
@@ -1016,23 +1056,34 @@ def names_spec(facts: dict) -> dict:
         "dir": "names",
         "id": "names",
         "level": None,
-        "title": "Overture Divisions Multilingual Name Search Index",
-        "short": "Multilingual Name Search Index",
+        "title": "Overture Divisions Multilingual Gazetteer (Name Index)",
+        "short": "Multilingual Gazetteer Index",
         "description": (
             EXPERIMENTAL
-            + "A search sidecar, not a boundary dataset: {names_rows} rows "
+            + "The gazetteer itself -- a search sidecar, not a boundary "
+            "dataset: {names_rows} rows "
             "over {names_primary} divisions in {names_countries} countries, "
             "sorted by a folded form of the name. {names_alt} of those rows "
             "are alternative spellings drawn from Overture's `names.common` "
             "map across {names_languages} language codes, each pointing back "
             "at its division through `alt_of`, which is what makes this "
-            "catalog worth its ODbL obligations. **The sort is the whole "
+            "catalog worth its ODbL obligations. It resolves place names and "
+            "administrative boundaries, **not street addresses**: there is no "
+            "house number and no interpolation here. **The sort is the whole "
             "design.** This index is far too large to load whole, so the "
             "intended path is HTTP range requests: row group statistics on "
             "`name_norm` are tight, non-overlapping alphabetical ranges, the "
             "footer declares the sort, and the Parquet page index is written, "
             "so a typed prefix resolves from one or two row groups of about "
-            "128 KiB. Every row carries the GERS `feature_id` that joins it "
+            "478 KiB. A client that wants a keystroke answered with no round "
+            "trip at all loads the **prominent index** instead -- a second, "
+            "8.6 MiB file in this same collection, same schema and same sort, "
+            "holding every division down to localadmin, every "
+            "alternative-language spelling of every country, and every "
+            "locality Overture ranks at prominence 50 or above. "
+            "`names/index.json` describes it under `prominent_index` with its "
+            "selection criteria in full. Every row of either file carries the "
+            "GERS `feature_id` that joins it "
             "to a boundary collection, a bbox to fly to, a point, and an "
             "advisory `geometry_ref` that turns the geometry fetch into a "
             "single range read. {names_point_only} divisions, almost all "
@@ -1113,7 +1164,82 @@ def style_assets(spec: dict, out_dir: Path) -> dict:
     return assets
 
 
+UPSTREAM_CAVEAT = (
+    "This is the authoritative release, not a copy of it: use it for bulk "
+    "download, for analysis over the whole theme, and for anything where the "
+    "answer has to come from Overture rather than from a mirror. It is not "
+    "what this catalog's files are for, and the difference is layout rather "
+    "than reachability -- measured 2026-11-12 on part-00000 of type=division: "
+    "4,700,999 rows in 256 row groups of about 18,400 rows, median 2.22 MB "
+    "and up to 3.85 MB compressed per row group, 50 leaf column chunks, no "
+    "declared sort, and a 1.47 MB footer that takes a reader two requests "
+    "because a speculative 512 KiB tail falls short. Finding one place by "
+    "name in it means scanning every part file; pulling one division's "
+    "geometry means fetching a multi-megabyte row group of the full "
+    "50-column schema. The files in this catalog are the same data sorted, "
+    "projected and laid out so that each of those is one small range "
+    "request. See the catalog README's \"The upstream data vs our optimized "
+    "files\"."
+)
+
 SOURCE_ASSETS = {
+    "upstream-division-s3": {
+        "href": f"{S3_HTTPS_THEME}/type=division/",
+        "type": "application/vnd.apache.parquet",
+        "title": (
+            f"Overture release {RELEASE}, type=division, on S3 over HTTPS "
+            f"({UPSTREAM_FILES['division']} file, "
+            f"{UPSTREAM_BYTES['division'] / 1e9:.2f} GB)"
+        ),
+        "roles": ["data", "source"],
+        "description": (
+            "Every division record in the release: the names, the hierarchy "
+            "and a point per division. The names collection here is built "
+            "from this type, and every collection takes its names from it. "
+            f"The same bytes are addressable as `{S3_THEME}/type=division/` "
+            "for DuckDB, GDAL and the AWS CLI; the bucket is public and "
+            "anonymous and the requester does not pay. Measured 2026-11-12, "
+            "this HTTPS endpoint answers `Accept-Ranges: bytes` and sends "
+            "`Access-Control-Allow-Origin: *` with `Content-Range` and "
+            "`Accept-Ranges` exposed, so a browser can range-read it "
+            f"cross-origin. {UPSTREAM_CAVEAT}"
+        ),
+    },
+    "upstream-division-area-s3": {
+        "href": f"{S3_HTTPS_THEME}/type=division_area/",
+        "type": "application/vnd.apache.parquet",
+        "title": (
+            f"Overture release {RELEASE}, type=division_area, on S3 over "
+            f"HTTPS ({UPSTREAM_FILES['division_area']} files, "
+            f"{UPSTREAM_BYTES['division_area'] / 1e9:.2f} GB)"
+        ),
+        "roles": ["data", "source"],
+        "description": (
+            "The polygons. Every boundary collection in this catalog is a "
+            "projection of one `subtype` of this type, joined to "
+            "type=division for names. Also addressable as "
+            f"`{S3_THEME}/type=division_area/`. Same public anonymous access "
+            f"and the same CORS headers as type=division. {UPSTREAM_CAVEAT}"
+        ),
+    },
+    "upstream-divisions-azure": {
+        "href": f"{AZURE_HTTPS_THEME}/",
+        "type": "application/vnd.apache.parquet",
+        "title": (
+            f"Overture release {RELEASE}, divisions theme, on the Azure Blob "
+            "mirror"
+        ),
+        "roles": ["data", "source"],
+        "description": (
+            "Overture publishes every release to Azure Blob Storage as well "
+            "as to S3, and these are the same files under `type=division/` "
+            "and `type=division_area/`. **It sends no CORS headers**, "
+            "measured 2026-11-12, so unlike the S3 HTTPS endpoint it cannot "
+            "be read from a browser cross-origin; it is for server-side and "
+            "CLI consumers, and for anyone whose egress is cheaper from "
+            f"Azure. {UPSTREAM_CAVEAT}"
+        ),
+    },
     "overture-division-schema": {
         "href": "../_assets/overture/division.schema.yaml",
         "type": "application/yaml",
@@ -1215,22 +1341,83 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
             "file:size": data.stat().st_size,
             "file:checksum": checksum(data),
             "table:primary_geometry": stats["primary"],
+            "description": (
+                "The whole gazetteer. Too large to load in a browser, and "
+                "not meant to be: it is sorted by `name_norm` so a typed "
+                "prefix is a range request. A client that wants an answer "
+                "with no round trip loads the `prominent-index` asset "
+                "instead and comes here for anything that file can miss."
+            ),
         }
+        prominent = PUBLISH / "names" / PROMINENT_NAME
+        if prominent.exists():
+            pstats = parquet_stats(prominent)
+            assets["prominent-index"] = {
+                "href": f"./{prominent.name}",
+                "type": "application/vnd.apache.parquet",
+                "title": (
+                    f"Prominent gazetteer index, GeoParquet 1.1 "
+                    f"({pstats['row_groups']:,} row groups of "
+                    f"{PROMINENT_ROW_GROUP_ROWS:,} rows, "
+                    f"{prominent.stat().st_size / (1 << 20):.1f} MiB, same "
+                    "schema and sort as the full index)"
+                ),
+                # "overview" is STAC's role for a reduced version of the data
+                # asset. This is a reduction in rows rather than in
+                # resolution, which is the same relationship.
+                "roles": ["data", "overview"],
+                "file:size": prominent.stat().st_size,
+                "file:checksum": checksum(prominent),
+                "table:primary_geometry": pstats["primary"],
+                "table:row_count": pstats["rows"],
+                "description": (
+                    f"A strict row subset of the full index -- "
+                    f"{pstats['rows']:,} rows of "
+                    f"{stats['rows']:,} -- small enough for a client to fetch "
+                    "whole on focus and answer keystrokes from memory, while "
+                    "the full index stays available by range request for "
+                    "anything deeper. Same schema, same sort, same "
+                    "`feature_id` and `geometry_ref`, so a hit found here "
+                    "resolves its geometry exactly as a hit found there. It "
+                    "holds every division from country down to localadmin, "
+                    "every alternative-language spelling of every country and "
+                    "dependency, and every locality Overture ranks at "
+                    "`cartography.prominence` 50 or above. What it can miss, "
+                    "and therefore when to fall back: any locality below that "
+                    "cut, and any alternative-language name of a region, "
+                    "county, localadmin or locality. The full criteria, with "
+                    "row counts per level, are in `index.json` under "
+                    "`prominent_index.criteria`."
+                ),
+            }
         manifest = out_dir / "index.json"
         if not manifest.exists():
             sys.exit(f"missing {manifest}; run tools/build_names.py first")
         assets["index-manifest"] = {
             "href": "./index.json",
             "type": "application/json",
-            "title": "Index manifest for the geocoder (cnmw-index/1.0)",
+            "title": "Gazetteer manifest for the geocoder (cnmw-index/1.0)",
             "roles": ["metadata"],
             "file:size": manifest.stat().st_size,
             "file:checksum": checksum(manifest),
             "description": (
-                "The kilobyte a client fetches before the index: its size, "
-                "row group count, checksum, catalog version, the URL and row "
-                "count of every boundary and display file, and the "
-                "attribution each one requires with a share_alike flag."
+                "The few kilobytes a client fetches before anything else. "
+                "For the full index, the prominent index and every boundary "
+                "and display file: the URL, size, checksum, row count, row "
+                "group count and `row_group_rows`, plus two exact metadata "
+                "sizes. `footer_bytes` is the whole trailing span, thrift "
+                "footer plus page index, so one range request of exactly "
+                "that many bytes from the end of a file leaves a client "
+                "holding all of its metadata; `footer_metadata_bytes` is the "
+                "thrift footer alone, the minimum needed to locate row "
+                "groups and what a hyparquet client should pass as "
+                "`initialFetchSize`. Without them hyparquet speculates a "
+                "512 KiB tail, which on the 409 MB index is a guaranteed "
+                "second round trip because its footer is 2.1 MB. Also "
+                "carries `prominent_index.criteria` -- exactly which rows "
+                "the small index holds and what it can miss -- the catalog "
+                "version, and the attribution each file requires with a "
+                "share_alike flag."
             ),
         }
     else:
@@ -1296,6 +1483,24 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
     assets.update(style_assets(spec, out_dir))
     for key, asset in SOURCE_ASSETS.items():
         assets[key] = dict(asset)
+        # The evidence assets are files in `catalog/_assets/`, so they get a
+        # size and a checksum. The upstream release assets are remote prefixes
+        # holding several part files whose bytes this repository never holds,
+        # so they get neither -- a `file:checksum` of a directory listing
+        # would be a fabrication, and `file:size` of one part file would
+        # understate the eight that type=division_area has.
+        if asset["href"].startswith(("http://", "https://")):
+            # A remote release prefix gets neither `file:size` nor
+            # `file:checksum`. The prefix holds several part files, so a
+            # multihash of it would be a fabrication -- and declaring a
+            # `file:size` is worse than omitting it: `portolan check` verifies
+            # a declared size against the bytes it can reach, finds none for a
+            # remote href, and turns a warning into a PTL-DAT-002 error.
+            # Measured, not assumed. The byte totals live in the asset titles
+            # instead, where they inform a reader without claiming to be a
+            # verifiable property of a local file. See docs/conformance.md for
+            # the PTL-AST-003 warnings this leaves.
+            continue
         local = CATALOG / asset["href"].replace("../", "")
         assets[key]["file:size"] = local.stat().st_size
         assets[key]["file:checksum"] = checksum(local)

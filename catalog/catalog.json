@@ -4,9 +4,9 @@
   "stac_extensions": [
     "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json"
   ],
-  "id": "cn-geocoder-overture",
-  "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",
-  "description": "**EXPERIMENTAL.** The schema may change without notice and the Source Cooperative repository is unlisted. Do not build anything on it that you cannot rebuild.\n\nOverture Maps divisions, release 2026-10-21.0, republished as cloud-native GeoParquet and PMTiles for a browser geocoder. Five boundary collections carry one land polygon per division from country down to locality, each with a display-simplified companion sized for an instant draw. A sixth collection is a multilingual name search index: one row per division plus one row per distinct alternative spelling, sorted by a folded form of the name so a client resolves a typed prefix with HTTP range requests instead of a download.\n\nThis is the **ODbL opt-in counterpart** to [geoboundaries-catalog](https://source.coop/portolan-mirrors/geoboundaries-catalog), which carries the same shape of data under CC-BY-4.0. This one reaches further down the hierarchy and carries names in hundreds of languages; the price is ODbL **share-alike**, which means a database derived from it has to be released under ODbL too, and any application built on it has to display the attribution. Choose between them by license tolerance and coverage need.\n\nThis is a mirror; [Overture Maps Foundation](https://overturemaps.org/) is the authoritative source. Read the [agent guide](AGENTS.md) before you query it.",
+  "id": "cn-gazetteer-overture",
+  "title": "EXPERIMENTAL: Overture Divisions Cloud-Native Gazetteer (ODbL)",
+  "description": "**EXPERIMENTAL.** The schema may change without notice and the Source Cooperative repository is unlisted. Do not build anything on it that you cannot rebuild.\n\nOverture Maps divisions, release 2026-10-21.0, republished as a **cloud-native gazetteer**: GeoParquet and PMTiles laid out so a browser can search and draw administrative places over HTTP range requests, with no server and no API key. Five boundary collections carry one land polygon per division from country down to locality, each with a display-simplified companion sized for an instant draw. A sixth collection, `names`, is the gazetteer index itself: one row per division plus one row per distinct alternative spelling, in hundreds of languages, sorted by a folded form of the name so a client resolves a typed prefix with HTTP range requests instead of a download. A second, smaller `names` file, the prominent index, holds the rows a first keystroke is likely to want and is small enough to load whole.\n\nIt is a **gazetteer, not a geocoder**: it resolves place names and administrative boundaries, not street addresses. There is no house number, no street centerline and no interpolation here. If you need to turn \"150 Main St\" into a coordinate, this is the wrong dataset.\n\nThis is the **ODbL opt-in counterpart** to [geoboundaries-catalog](https://source.coop/portolan-mirrors/geoboundaries-catalog), which carries the same shape of data under CC-BY-4.0. This one reaches further down the hierarchy and carries names in hundreds of languages; the price is ODbL **share-alike**, which means a database derived from it has to be released under ODbL too, and any application built on it has to display the attribution. Choose between them by license tolerance and coverage need.\n\nThis is a mirror; [Overture Maps Foundation](https://overturemaps.org/) is the authoritative source. Read the [agent guide](AGENTS.md) before you query it.",
   "keywords": [
     "experimental",
     "geocoding",
@@ -25,7 +25,7 @@
   "links": [
     {
       "rel": "self",
-      "href": "https://data.source.coop/portolan-mirrors/cn-geocoder-overture/catalog.json",
+      "href": "https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/catalog.json",
       "type": "application/json",
       "title": "EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)"
     },
@@ -49,12 +49,12 @@
     },
     {
       "rel": "vcs",
-      "href": "https://github.com/portolan-mirrors/cn-geocoder-overture",
+      "href": "https://github.com/portolan-mirrors/cn-gazetteer-overture",
       "title": "Source repository"
     },
     {
       "rel": "issues",
-      "href": "https://github.com/portolan-mirrors/cn-geocoder-overture/issues",
+      "href": "https://github.com/portolan-mirrors/cn-gazetteer-overture/issues",
       "title": "Issue tracker"
     },
     {
@@ -144,7 +144,7 @@
         "processor",
         "host"
       ],
-      "url": "https://github.com/portolan-mirrors/cn-geocoder-overture"
+      "url": "https://github.com/portolan-mirrors/cn-gazetteer-overture"
     }
   ]
 }

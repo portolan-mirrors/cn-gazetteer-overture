@@ -1,4 +1,4 @@
-# Overture Divisions Multilingual Name Search Index
+# Overture Divisions Multilingual Gazetteer (Name Index)
 
 > [!WARNING]
 > **This catalog is EXPERIMENTAL.** The schema may change without notice, the
@@ -7,16 +7,29 @@
 > `catalog_version` in [index.json](names/index.json) if you depend on
 > it, and expect to rebuild.
 
-A search sidecar, not a boundary dataset. One row per Overture division, plus
-one row per distinct alternative spelling of that division's name, sorted by a
-folded form of the name.
+The gazetteer itself -- a search sidecar, not a boundary dataset. One row per
+Overture division, plus one row per distinct alternative spelling of that
+division's name, sorted by a folded form of the name.
 
 It exists so that a **static client with no server** can turn a typed name, in
 any of hundreds of languages, into a GERS id, an extent and a point. That is
 the lookup half of a browser geocoder, and the multilingual half is what this
 catalog has that its CC-BY counterpart,
 [geoboundaries-catalog](https://source.coop/portolan-mirrors/geoboundaries-catalog),
-does not.
+does not. It resolves place names and administrative boundaries, **not street
+addresses**.
+
+**There are two files here, and the small one is where to start.** The full
+index is 409.2 MB, which no browser loads, so every keystroke against it is an
+HTTP round trip. `overture_division_names_prominent.parquet` is 8.6 MiB -- the
+same schema, the same sort, a strict subset of the same rows -- small enough to
+fetch whole on focus and then answer keystrokes from memory. Measured with
+hyparquet, a cold first lookup costs **300 KB over 1 request** against the
+prominent index and **2.64 MB over 2** against the full one. Read
+`prominent_index.criteria` in [index.json](index.json) for exactly which rows
+it holds and what it can miss; the full index is the fallback and every row of
+the small file is also in it, with the same `feature_id` and the same
+`geometry_ref`.
 
 | | |
 |---|---|
@@ -25,10 +38,11 @@ does not.
 | Alternative-spelling rows | 2,031,617 |
 | Language codes represented | 1,012 |
 | Divisions with a boundary in this catalog | 1,496,804 |
-| Parquet | 407.7 MB, 876 row groups of 6,400 rows, zstd, page index |
-| Bytes per row | 76.28 |
-| Row group | ~473.6 KB |
-| Footer + page index | 2,053,386 bytes |
+| Parquet | 409.2 MB, 876 row groups of 6,400 rows, zstd, page index |
+| Bytes per row | 76.56 |
+| Row group | ~475.2 KB |
+| Footer + page index | 2,150,142 bytes (`footer_bytes`); thrift footer alone 2,150,142 (`footer_metadata_bytes`) |
+| Prominent index | 8.6 MB, 108,919 rows, 71 row groups of 1,536, footer 172,106 bytes |
 | Sorted by | `name_norm`, `level`, `country`, `feature_id`, byte-wise on UTF-8, declared in the footer |
 | PMTiles | 146.3 MB, zoom 0-8 |
 | CRS | CRS84 (EPSG:4326) |
@@ -57,7 +71,7 @@ localities in this index, and they are still the right answer to a search.
 
 ## How to read it
 
-**Range-request it.** At 407.7 MB this index is far too large to load whole,
+**Range-request it.** At 409.2 MB this index is far too large to load whole,
 and it is not meant to be. The sort is the whole design: row group statistics
 on `name_norm` are tight, non-overlapping alphabetical ranges, the footer
 declares the sort order, and the Parquet page index is written, so a client
@@ -73,18 +87,18 @@ Measured over all 189,359 two-character prefixes that occur in `name_norm`:
 | 95th percentile | 1 |
 | maximum | 22 |
 
-So a typed two-letter prefix costs a median of 1 read of about 473.6 KB, on top
-of a 2,053,386-byte footer read that happens once. The manifest publishes
+So a typed two-letter prefix costs a median of 1 read of about 475.2 KB, on top
+of a 2,150,142-byte footer read that happens once. The manifest publishes
 `index.size` and `index.row_groups` so that footer read can be a single
 exactly-sized tail request rather than a speculative one. Full numbers,
 including compressed bytes per column, are in
-[docs/index-measurements.md](https://github.com/portolan-mirrors/cn-geocoder-overture/blob/main/docs/index-measurements.md).
+[docs/index-measurements.md](https://github.com/portolan-mirrors/cn-gazetteer-overture/blob/main/docs/index-measurements.md).
 
 Browser clients read it with [hyparquet](https://github.com/hyparam/hyparquet)
 plus [hyparquet-compressors](https://github.com/hyparam/hyparquet-compressors),
 which is **required**, because every column chunk is zstd.
 `tools/verify_index_hyparquet.mjs` in the
-[repository](https://github.com/portolan-mirrors/cn-geocoder-overture) does
+[repository](https://github.com/portolan-mirrors/cn-gazetteer-overture) does
 exactly that and reports the bytes each prefix lookup fetched.
 
 **Do not load it whole** unless you are running a batch job. A server-side
@@ -163,7 +177,7 @@ INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;
 
 -- Everything called Zurich, in any language, best match first.
 SELECT name, name_lang, level, country, parent_name, population
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet'
 WHERE name_norm LIKE 'zurich%'
 ORDER BY level, population DESC NULLS LAST;
 ```
@@ -343,4 +357,4 @@ the Overture release.
 
 Every column is described in [collection.json](collection.json). The
 human-facing page is at
-[https://source.coop/portolan-mirrors/cn-geocoder-overture/names](https://source.coop/portolan-mirrors/cn-geocoder-overture/names).
+[https://source.coop/portolan-mirrors/cn-gazetteer-overture/names](https://source.coop/portolan-mirrors/cn-gazetteer-overture/names).

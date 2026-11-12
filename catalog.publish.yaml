@@ -15,11 +15,11 @@
 # approved rather than per-account keys it issues. The two are the same bytes
 # through different doors: the repository is a key prefix here, where at the
 # gateway it was the bucket name.
-write_prefix: s3://portolan-mirrors/cn-geocoder-overture
+write_prefix: s3://portolan-mirrors/cn-gazetteer-overture
 
 # The public base URL that serves write_prefix. Every href in the catalog is
 # built from this, so it goes in the STAC JSON and write_prefix does not.
-public_base: https://data.source.coop/portolan-mirrors/cn-geocoder-overture
+public_base: https://data.source.coop/portolan-mirrors/cn-gazetteer-overture
 
 region: us-west-2
 

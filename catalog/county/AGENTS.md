@@ -31,7 +31,7 @@ written; the output under each one is what it returned.
 
 One land polygon per Overture division of subtype `county`, from release
 `2026-10-21.0`. This catalog's search level is **2**. Public root:
-`https://data.source.coop/portolan-mirrors/cn-geocoder-overture/catalog.json`
+`https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/catalog.json`
 
 ```
 county/overture_county.parquet          649.4 MB, 38,937 rows, 406 row groups of 96
@@ -115,7 +115,7 @@ collection's `known_issues`, rendered in [README.md](README.md).
 SELECT subtype, count(*) AS n, count(DISTINCT country) AS countries,
        round(min(area_km2), 2) AS min_km2,
        round(max(area_km2)) AS max_km2
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet'
 GROUP BY 1 ORDER BY 2 DESC;
 ```
 
@@ -129,8 +129,8 @@ county   38937  171        0        845448
 ```sql
 SELECT name, subtype, country, parent_name, area_km2, vertices,
        bbox.xmin, bbox.ymin, bbox.xmax, bbox.ymax
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet'
-WHERE division_id = (SELECT division_id FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet'
+WHERE division_id = (SELECT division_id FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet'
                      ORDER BY area_km2 DESC LIMIT 1);
 ```
 
@@ -149,7 +149,7 @@ schema](https://docs.overturemaps.org/schema/reference/divisions/division) ]**.
 
 ```sql
 SELECT name, country, round(area_km2) AS area_km2
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet'
 WHERE bbox.xmin < 12.5 AND bbox.xmax > 11.5
   AND bbox.ymin < 56.0 AND bbox.ymax > 55.0
 ORDER BY area_km2 DESC;
@@ -184,7 +184,7 @@ SELECT count(*) AS rows,
        sum(d.vertices) AS display_vertices,
        round(100 - 100.0 * sum(d.vertices) / sum(f.vertices), 1)
          AS pct_fewer
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet' f JOIN 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county_display.parquet' d USING (division_id);
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet' f JOIN 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county_display.parquet' d USING (division_id);
 ```
 
 ```
@@ -200,7 +200,7 @@ makes the search index's `geometry_ref` valid against both.
 
 ```sql
 SELECT name, country, name_langs
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet'
 ORDER BY name_langs DESC, name LIMIT 8;
 ```
 

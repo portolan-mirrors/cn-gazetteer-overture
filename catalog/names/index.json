@@ -37,9 +37,12 @@
   "dropped_unnamed": 0,
   "index": {
     "url": "./overture_division_names.parquet",
-    "size": 427507857,
-    "checksum": "1220388e385f86f9b34aea67df12910019f72ad6d4aad54971704f8fff085b644d62",
+    "size": 429055759,
+    "row_count": 5604413,
     "row_groups": 876,
+    "footer_bytes": 2817610,
+    "footer_metadata_bytes": 2150142,
+    "checksum": "1220f8fa54fe3dbf1c21a645833633a566ba43946fe4fa3f46605d65132e07ee7d27",
     "row_group_rows": 6400,
     "sorted_by": [
       "name_norm",
@@ -47,6 +50,66 @@
       "country",
       "feature_id"
     ]
+  },
+  "prominent_index": {
+    "url": "./overture_division_names_prominent.parquet",
+    "size": 9036919,
+    "row_count": 108919,
+    "row_groups": 71,
+    "footer_bytes": 224375,
+    "footer_metadata_bytes": 172106,
+    "checksum": "122072815d4169d56e699ef70ea08ca791429921af97bd02ce0b92b0fc2987ee5575",
+    "row_group_rows": 1536,
+    "sorted_by": [
+      "name_norm",
+      "level",
+      "country",
+      "feature_id"
+    ],
+    "of": "./overture_division_names.parquet",
+    "load": "eager",
+    "rows_per_level": {
+      "0": {
+        "rows": 25620,
+        "primary_rows": 272,
+        "alt_rows": 25348
+      },
+      "1": {
+        "rows": 3929,
+        "primary_rows": 3929,
+        "alt_rows": 0
+      },
+      "2": {
+        "rows": 38937,
+        "primary_rows": 38937,
+        "alt_rows": 0
+      },
+      "3": {
+        "rows": 21502,
+        "primary_rows": 21502,
+        "alt_rows": 0
+      },
+      "4": {
+        "rows": 18931,
+        "primary_rows": 18931,
+        "alt_rows": 0
+      }
+    },
+    "criteria": {
+      "primary_levels": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "alt_levels": [
+        0
+      ],
+      "prominence_cut": 50,
+      "prominence_column": "prominence",
+      "description": "A strict row subset of the full index, in the same schema and the same sort, so a hit found here resolves its geometry exactly as a hit found there: same feature_id, same geometry_ref, same name_norm. A row is included when it is (a) a primary row at level 0, 1, 2, 3 -- country, dependency, region, county, localadmin; or (b) an alternative-name row at level 0; or (c) a level-4 locality row, primary or alternative, whose Overture cartography.prominence is >= 50. prominence is Overture's own 1-100 cartographic ranking, populated on every locality and on nothing else; it is guidance rather than a measurement, so this is a recall boundary and not a claim that an excluded place is unimportant.",
+      "fallback": "Query the full index for anything this file can miss: any locality below the prominence cut, and any alternative-language name of a region, county, localadmin or locality. Every row of this file is also in the full index, so a client may query both and dedupe by feature_id."
+    }
   },
   "boundaries": [
     {
@@ -59,13 +122,17 @@
         "url": "../country/overture_country.parquet",
         "size": 53887574,
         "row_count": 272,
-        "row_groups": 34
+        "row_groups": 34,
+        "footer_bytes": 163696,
+        "footer_metadata_bytes": 116670
       },
       "display": {
         "url": "../country/overture_country_display.parquet",
         "size": 5471919,
         "row_count": 272,
-        "row_groups": 34
+        "row_groups": 34,
+        "footer_bytes": 106596,
+        "footer_metadata_bytes": 83921
       }
     },
     {
@@ -78,13 +145,17 @@
         "url": "../region/overture_region.parquet",
         "size": 242197071,
         "row_count": 3929,
-        "row_groups": 152
+        "row_groups": 152,
+        "footer_bytes": 738271,
+        "footer_metadata_bytes": 520517
       },
       "display": {
         "url": "../region/overture_region_display.parquet",
         "size": 25099168,
         "row_count": 3929,
-        "row_groups": 152
+        "row_groups": 152,
+        "footer_bytes": 452473,
+        "footer_metadata_bytes": 334680
       }
     },
     {
@@ -97,13 +168,17 @@
         "url": "../county/overture_county.parquet",
         "size": 680955758,
         "row_count": 38937,
-        "row_groups": 406
+        "row_groups": 406,
+        "footer_bytes": 2079326,
+        "footer_metadata_bytes": 1482984
       },
       "display": {
         "url": "../county/overture_county_display.parquet",
         "size": 117937697,
         "row_count": 38937,
-        "row_groups": 406
+        "row_groups": 406,
+        "footer_bytes": 1669869,
+        "footer_metadata_bytes": 1173487
       }
     },
     {
@@ -116,13 +191,17 @@
         "url": "../localadmin/overture_localadmin.parquet",
         "size": 149503939,
         "row_count": 21502,
-        "row_groups": 90
+        "row_groups": 90,
+        "footer_bytes": 433082,
+        "footer_metadata_bytes": 307470
       },
       "display": {
         "url": "../localadmin/overture_localadmin_display.parquet",
         "size": 56428419,
         "row_count": 21502,
-        "row_groups": 90
+        "row_groups": 90,
+        "footer_bytes": 389077,
+        "footer_metadata_bytes": 285852
       }
     },
     {
@@ -135,13 +214,17 @@
         "url": "../locality/overture_locality.parquet",
         "size": 1315997215,
         "row_count": 556094,
-        "row_groups": 580
+        "row_groups": 580,
+        "footer_bytes": 3428900,
+        "footer_metadata_bytes": 2444013
       },
       "display": {
         "url": "../locality/overture_locality_display.parquet",
         "size": 912943874,
         "row_count": 556094,
-        "row_groups": 580
+        "row_groups": 580,
+        "footer_bytes": 2278067,
+        "footer_metadata_bytes": 1663090
       }
     }
   ],

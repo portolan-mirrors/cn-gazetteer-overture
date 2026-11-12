@@ -8,8 +8,8 @@
     "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json"
   ],
   "id": "names",
-  "title": "Overture Divisions Multilingual Name Search Index",
-  "description": "**EXPERIMENTAL.** The schema of this collection may change without notice, and the Source Cooperative repository that serves it is unlisted. A search sidecar, not a boundary dataset: 5,604,413 rows over 3,572,796 divisions in 272 countries, sorted by a folded form of the name. 2,031,617 of those rows are alternative spellings drawn from Overture's `names.common` map across 1,012 language codes, each pointing back at its division through `alt_of`, which is what makes this catalog worth its ODbL obligations. **The sort is the whole design.** This index is far too large to load whole, so the intended path is HTTP range requests: row group statistics on `name_norm` are tight, non-overlapping alphabetical ranges, the footer declares the sort, and the Parquet page index is written, so a typed prefix resolves from one or two row groups of about 128 KiB. Every row carries the GERS `feature_id` that joins it to a boundary collection, a bbox to fly to, a point, and an advisory `geometry_ref` that turns the geometry fetch into a single range read. 2,952,062 divisions, almost all localities, have no polygon anywhere in this catalog and say so through `has_boundary`. The [agent guide](AGENTS.md) has the prefix-lookup recipe and the join back to geometry. **ODbL share-alike applies.** A database derived from this collection has to be released under ODbL as well, and an application that shows it has to display the attribution: *\u00a9 OpenStreetMap contributors. Available under the [Open Database License](https://www.openstreetmap.org/copyright).* The [CC-BY-4.0 counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog) carries no such obligation and less coverage.",
+  "title": "Overture Divisions Multilingual Gazetteer (Name Index)",
+  "description": "**EXPERIMENTAL.** The schema of this collection may change without notice, and the Source Cooperative repository that serves it is unlisted. The gazetteer itself -- a search sidecar, not a boundary dataset: 5,604,413 rows over 3,572,796 divisions in 272 countries, sorted by a folded form of the name. 2,031,617 of those rows are alternative spellings drawn from Overture's `names.common` map across 1,012 language codes, each pointing back at its division through `alt_of`, which is what makes this catalog worth its ODbL obligations. It resolves place names and administrative boundaries, **not street addresses**: there is no house number and no interpolation here. **The sort is the whole design.** This index is far too large to load whole, so the intended path is HTTP range requests: row group statistics on `name_norm` are tight, non-overlapping alphabetical ranges, the footer declares the sort, and the Parquet page index is written, so a typed prefix resolves from one or two row groups of about 478 KiB. A client that wants a keystroke answered with no round trip at all loads the **prominent index** instead -- a second, 8.6 MiB file in this same collection, same schema and same sort, holding every division down to localadmin, every alternative-language spelling of every country, and every locality Overture ranks at prominence 50 or above. `names/index.json` describes it under `prominent_index` with its selection criteria in full. Every row of either file carries the GERS `feature_id` that joins it to a boundary collection, a bbox to fly to, a point, and an advisory `geometry_ref` that turns the geometry fetch into a single range read. 2,952,062 divisions, almost all localities, have no polygon anywhere in this catalog and say so through `has_boundary`. The [agent guide](AGENTS.md) has the prefix-lookup recipe and the join back to geometry. **ODbL share-alike applies.** A database derived from this collection has to be released under ODbL as well, and an application that shows it has to display the attribution: *\u00a9 OpenStreetMap contributors. Available under the [Open Database License](https://www.openstreetmap.org/copyright).* The [CC-BY-4.0 counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog) carries no such obligation and less coverage.",
   "license": "ODbL-1.0",
   "keywords": [
     "experimental",
@@ -51,7 +51,7 @@
         "processor",
         "host"
       ],
-      "url": "https://github.com/portolan-mirrors/cn-geocoder-overture"
+      "url": "https://github.com/portolan-mirrors/cn-gazetteer-overture"
     }
   ],
   "extent": {
@@ -99,6 +99,11 @@
       "description": "Attested. Overture's own placetype, carried through so that the two subtypes sharing level 0 stay distinguishable: `country`, `dependency`, `region`, `county`, `localadmin` or `locality`."
     },
     {
+      "name": "class",
+      "type": "string",
+      "description": "Attested. Overture's `class` on the division row: how settled a locality is, one of `city`, `town`, `village` or `hamlet`. It is **a ranking signal, not a filter**, and it is null above locality: measured on this release, Overture populates it on 3,394,627 of 3,508,156 localities and on none of the 64,640 divisions above them, so 113,529 localities have no class and some of those are real cities. The distribution is hamlet 1,715,416, village 1,561,816, town 103,175, city 14,220, which makes `class IN ('city', 'town')` 117,395 places out of 3.5 million. It is in this index because ranking verification showed a short prefix is otherwise dominated by alternative-language rows of countries and regions -- Baghdad buried under Tajik and Uzbek spellings of Bahamas -- and no other column separates a city from a country that happens to share a prefix. `area_km2` makes it worse, because a country always dwarfs a city."
+    },
+    {
       "name": "country",
       "type": "string",
       "description": "Derived. ISO 3166-1 alpha-3, mapped from Overture's alpha-2 through the official ISO 3166-1 table packaged with pycountry, so this index and the CC-BY counterpart can be filtered with one code system. A country row carries its own code. A synthetic Overture code with no alpha-3 equivalent is carried through unchanged."
@@ -141,7 +146,7 @@
     {
       "name": "population",
       "type": "int32",
-      "description": "Attested. Overture's `population` for the division where it has one. Sparse, undated, and the single most useful ranking signal for a locality search, where area is usually null."
+      "description": "Attested. Overture's `population` for the division where it has one, carried byte for byte. Undated, and **sparse in a way a ranker has to handle explicitly**: measured on this release, Overture populates it on 79.9% of countries (175 of 219), 30.6% of regions, 21.3% of counties, 35.0% of localadmins and 17.7% of localities (621,090 of 3,508,156). Null means unknown, never zero -- a client that coalesces it to 0 sorts every unpopulated place last, which at level 4 is five rows in six. Use it as a relevance weight alongside `prominence` and `class`, not as a census figure."
     },
     {
       "name": "prominence",
@@ -182,25 +187,40 @@
       "roles": [
         "data"
       ],
-      "file:size": 427507857,
-      "file:checksum": "1220388e385f86f9b34aea67df12910019f72ad6d4aad54971704f8fff085b644d62",
-      "table:primary_geometry": "geometry"
+      "file:size": 429055759,
+      "file:checksum": "1220f8fa54fe3dbf1c21a645833633a566ba43946fe4fa3f46605d65132e07ee7d27",
+      "table:primary_geometry": "geometry",
+      "description": "The whole gazetteer. Too large to load in a browser, and not meant to be: it is sorted by `name_norm` so a typed prefix is a range request. A client that wants an answer with no round trip loads the `prominent-index` asset instead and comes here for anything that file can miss."
+    },
+    "prominent-index": {
+      "href": "./overture_division_names_prominent.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Prominent gazetteer index, GeoParquet 1.1 (71 row groups of 1,536 rows, 8.6 MiB, same schema and sort as the full index)",
+      "roles": [
+        "data",
+        "overview"
+      ],
+      "file:size": 9036919,
+      "file:checksum": "122072815d4169d56e699ef70ea08ca791429921af97bd02ce0b92b0fc2987ee5575",
+      "table:primary_geometry": "geometry",
+      "table:row_count": 108919,
+      "description": "A strict row subset of the full index -- 108,919 rows of 5,604,413 -- small enough for a client to fetch whole on focus and answer keystrokes from memory, while the full index stays available by range request for anything deeper. Same schema, same sort, same `feature_id` and `geometry_ref`, so a hit found here resolves its geometry exactly as a hit found there. It holds every division from country down to localadmin, every alternative-language spelling of every country and dependency, and every locality Overture ranks at `cartography.prominence` 50 or above. What it can miss, and therefore when to fall back: any locality below that cut, and any alternative-language name of a region, county, localadmin or locality. The full criteria, with row counts per level, are in `index.json` under `prominent_index.criteria`."
     },
     "index-manifest": {
       "href": "./index.json",
       "type": "application/json",
-      "title": "Index manifest for the geocoder (cnmw-index/1.0)",
+      "title": "Gazetteer manifest for the geocoder (cnmw-index/1.0)",
       "roles": [
         "metadata"
       ],
-      "file:size": 4534,
-      "file:checksum": "12205bb8b9ea147fe52339588a0ccfb18ddd86992819b4fe514d956f6c6159f6b84d",
-      "description": "The kilobyte a client fetches before the index: its size, row group count, checksum, catalog version, the URL and row count of every boundary and display file, and the attribution each one requires with a share_alike flag."
+      "file:size": 7612,
+      "file:checksum": "1220f9256634c352f758e2c532dbce22abf301354334fef60e8db86bba25768e5d48",
+      "description": "The few kilobytes a client fetches before anything else. For the full index, the prominent index and every boundary and display file: the URL, size, checksum, row count, row group count and `row_group_rows`, plus two exact metadata sizes. `footer_bytes` is the whole trailing span, thrift footer plus page index, so one range request of exactly that many bytes from the end of a file leaves a client holding all of its metadata; `footer_metadata_bytes` is the thrift footer alone, the minimum needed to locate row groups and what a hyparquet client should pass as `initialFetchSize`. Without them hyparquet speculates a 512 KiB tail, which on the 409 MB index is a guaranteed second round trip because its footer is 2.1 MB. Also carries `prominent_index.criteria` -- exactly which rows the small index holds and what it can miss -- the catalog version, and the attribution each file requires with a share_alike flag."
     },
     "pmtiles": {
       "href": "./names.pmtiles",
       "type": "application/vnd.pmtiles",
-      "title": "Multilingual Name Search Index, vector tiles to zoom 8",
+      "title": "Multilingual Gazetteer Index, vector tiles to zoom 8",
       "roles": [
         "visual",
         "data"
@@ -252,6 +272,36 @@
       "file:size": 1086,
       "file:checksum": "1220928a598b0726607c6d8d6cf25e8a68be60147bcae45f3d14056aeb4d3de5c600"
     },
+    "upstream-division-s3": {
+      "href": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-10-21.0/theme=divisions/type=division/",
+      "type": "application/vnd.apache.parquet",
+      "title": "Overture release 2026-10-21.0, type=division, on S3 over HTTPS (1 file, 0.58 GB)",
+      "roles": [
+        "data",
+        "source"
+      ],
+      "description": "Every division record in the release: the names, the hierarchy and a point per division. The names collection here is built from this type, and every collection takes its names from it. The same bytes are addressable as `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/type=division/` for DuckDB, GDAL and the AWS CLI; the bucket is public and anonymous and the requester does not pay. Measured 2026-11-12, this HTTPS endpoint answers `Accept-Ranges: bytes` and sends `Access-Control-Allow-Origin: *` with `Content-Range` and `Accept-Ranges` exposed, so a browser can range-read it cross-origin. This is the authoritative release, not a copy of it: use it for bulk download, for analysis over the whole theme, and for anything where the answer has to come from Overture rather than from a mirror. It is not what this catalog's files are for, and the difference is layout rather than reachability -- measured 2026-11-12 on part-00000 of type=division: 4,700,999 rows in 256 row groups of about 18,400 rows, median 2.22 MB and up to 3.85 MB compressed per row group, 50 leaf column chunks, no declared sort, and a 1.47 MB footer that takes a reader two requests because a speculative 512 KiB tail falls short. Finding one place by name in it means scanning every part file; pulling one division's geometry means fetching a multi-megabyte row group of the full 50-column schema. The files in this catalog are the same data sorted, projected and laid out so that each of those is one small range request. See the catalog README's \"The upstream data vs our optimized files\"."
+    },
+    "upstream-division-area-s3": {
+      "href": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-10-21.0/theme=divisions/type=division_area/",
+      "type": "application/vnd.apache.parquet",
+      "title": "Overture release 2026-10-21.0, type=division_area, on S3 over HTTPS (8 files, 4.58 GB)",
+      "roles": [
+        "data",
+        "source"
+      ],
+      "description": "The polygons. Every boundary collection in this catalog is a projection of one `subtype` of this type, joined to type=division for names. Also addressable as `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/type=division_area/`. Same public anonymous access and the same CORS headers as type=division. This is the authoritative release, not a copy of it: use it for bulk download, for analysis over the whole theme, and for anything where the answer has to come from Overture rather than from a mirror. It is not what this catalog's files are for, and the difference is layout rather than reachability -- measured 2026-11-12 on part-00000 of type=division: 4,700,999 rows in 256 row groups of about 18,400 rows, median 2.22 MB and up to 3.85 MB compressed per row group, 50 leaf column chunks, no declared sort, and a 1.47 MB footer that takes a reader two requests because a speculative 512 KiB tail falls short. Finding one place by name in it means scanning every part file; pulling one division's geometry means fetching a multi-megabyte row group of the full 50-column schema. The files in this catalog are the same data sorted, projected and laid out so that each of those is one small range request. See the catalog README's \"The upstream data vs our optimized files\"."
+    },
+    "upstream-divisions-azure": {
+      "href": "https://overturemapswestus2.blob.core.windows.net/release/2026-10-21.0/theme=divisions/",
+      "type": "application/vnd.apache.parquet",
+      "title": "Overture release 2026-10-21.0, divisions theme, on the Azure Blob mirror",
+      "roles": [
+        "data",
+        "source"
+      ],
+      "description": "Overture publishes every release to Azure Blob Storage as well as to S3, and these are the same files under `type=division/` and `type=division_area/`. **It sends no CORS headers**, measured 2026-11-12, so unlike the S3 HTTPS endpoint it cannot be read from a browser cross-origin; it is for server-side and CLI consumers, and for anyone whose egress is cheaper from Azure. This is the authoritative release, not a copy of it: use it for bulk download, for analysis over the whole theme, and for anything where the answer has to come from Overture rather than from a mirror. It is not what this catalog's files are for, and the difference is layout rather than reachability -- measured 2026-11-12 on part-00000 of type=division: 4,700,999 rows in 256 row groups of about 18,400 rows, median 2.22 MB and up to 3.85 MB compressed per row group, 50 leaf column chunks, no declared sort, and a 1.47 MB footer that takes a reader two requests because a speculative 512 KiB tail falls short. Finding one place by name in it means scanning every part file; pulling one division's geometry means fetching a multi-megabyte row group of the full 50-column schema. The files in this catalog are the same data sorted, projected and laid out so that each of those is one small range request. See the catalog README's \"The upstream data vs our optimized files\"."
+    },
     "overture-division-schema": {
       "href": "../_assets/overture/division.schema.yaml",
       "type": "application/yaml",
@@ -291,7 +341,7 @@
     "thumbnail": {
       "href": "./names.thumb.png",
       "type": "image/png",
-      "title": "Multilingual Name Search Index, rendered from the default style",
+      "title": "Multilingual Gazetteer Index, rendered from the default style",
       "roles": [
         "thumbnail"
       ],
@@ -394,7 +444,7 @@
       "rel": "pmtiles",
       "href": "./names.pmtiles",
       "type": "application/vnd.pmtiles",
-      "title": "Multilingual Name Search Index, vector tiles",
+      "title": "Multilingual Gazetteer Index, vector tiles",
       "pmtiles:layers": [
         "names"
       ]

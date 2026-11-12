@@ -1,4 +1,4 @@
-# AGENTS.md — Overture Divisions Multilingual Name Search Index
+# AGENTS.md — Overture Divisions Multilingual Gazetteer (Name Index)
 
 Guidance for AI agents and automated clients working with this collection.
 
@@ -29,16 +29,18 @@ written; the output under each one is what it returned.
 
 ## Overview
 
-**A search sidecar, not a boundary dataset.** One row per Overture division
-plus one row per distinct alternative spelling of its name, built so a static
-client with no server can turn a typed name, in any of hundreds of languages,
-into a GERS id, a bbox and a point. Public root:
-`https://data.source.coop/portolan-mirrors/cn-geocoder-overture/catalog.json`
+**The gazetteer: a search sidecar, not a boundary dataset.** One row per
+Overture division plus one row per distinct alternative spelling of its name,
+built so a static client with no server can turn a typed name, in any of
+hundreds of languages, into a GERS id, a bbox and a point. Place names and
+administrative boundaries only — **never street addresses**. Public root:
+`https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/catalog.json`
 
 ```
-names/overture_division_names.parquet  407.7 MB, 5,604,413 rows, 876 row groups of 6,400
-names/index.json                       4,534 bytes, the manifest to fetch first
-names/names.pmtiles                    146.3 MB, zoom 0-8, layer "names"
+names/overture_division_names.parquet            409.2 MB, 5,604,413 rows, 876 row groups of 6,400
+names/overture_division_names_prominent.parquet  8.6 MB, 108,919 rows, 71 row groups of 1,536 — the eager-load subset
+names/index.json                                 7,612 bytes, the manifest to fetch first
+names/names.pmtiles                              146.3 MB, zoom 0-8, layer "names"
 ```
 
 3,572,796 primary rows and 2,031,617 alternative-spelling rows. The `geometry`
@@ -46,6 +48,35 @@ column is **one point per division**, from `ST_PointOnSurface` of its polygon
 where there is one and Overture's own division point where there is not. It is
 a marker, not a shape: do not compute area, length or containment from this
 file. The shape lives in the boundary collection at the row's `level`.
+
+## Two files: read the small one first
+
+`overture_division_names_prominent.parquet` is the **prominent index**: 108,919
+of the full index's 5,604,413 rows, 8.6 MB against 409.2 MB, in the same schema
+and the same sort. It is a strict row subset — it copies rows rather than
+recomputing them — so a hit found in it carries the same `feature_id` and the
+same `geometry_ref` as the same row in the full index and resolves to geometry
+identically. Neither file is authoritative over the other. [derived]
+
+Measured with hyparquet, reading one row group cold:
+
+| | full index | prominent index |
+|---|---|---|
+| size | 409.2 MB | 8.6 MB |
+| rows | 5,604,413 | 108,919 |
+| footer, speculative 512 KiB tail | 2.15 MB in **2 requests** | 524 KB in 1 |
+| footer, exact `footer_metadata_bytes` | 2.15 MB in 1 request | 172 KB in 1 |
+| one row group | 487 KB | 128 KB |
+| **first lookup, cold** | **2.64 MB** | **300 KB** |
+| whole-file load | not viable | 8.6 MiB once, then 0 per keystroke |
+
+**What the prominent index holds**, from `index.json` ->
+`prominent_index.criteria`: every primary row at levels 0-3 (country,
+dependency, region, county, localadmin), every alternative-name row at level 0,
+and every level-4 locality row at `cartography.prominence` >= 50. **What it
+misses, and so when to fall back to the full index:** any locality below that
+cut, and any alternative-language name of a region, county, localadmin or
+locality. A client may query both and dedupe by `feature_id`. [derived]
 
 ## Accessing the data
 
@@ -64,17 +95,17 @@ display file, and the attribution each source requires with a `share_alike`
 flag. A widget reads the attribution out of it and shows it before any search
 happens, because ODbL requires that whether or not a search happens.
 
-**Then range-request the index.** At 407.7 MB this file is not meant to be
+**Then range-request the index.** At 409.2 MB this file is not meant to be
 loaded whole. The manifest's `index.size` lets the footer read be one
-exactly-sized tail request of 2,053,386 bytes rather than a speculative 512 KB.
+exactly-sized tail request of 2,150,142 bytes rather than a speculative 512 KB.
 After that, the sort does the work.
 
 Measured over all 189,359 two-character prefixes that occur in `name_norm`: a
 prefix touches a **minimum of 1, a median of 1, a 95th percentile of 1 and a
-maximum of 22** row groups, each about 473.6 KB **[derived:
+maximum of 22** row groups, each about 475.2 KB **[derived:
 tools/measure_index.py]**. Full numbers, including compressed bytes per column,
 are in `docs/index-measurements.md` in the
-[repository](https://github.com/portolan-mirrors/cn-geocoder-overture).
+[repository](https://github.com/portolan-mirrors/cn-gazetteer-overture).
 
 A browser client reads it with
 [hyparquet](https://github.com/hyparam/hyparquet) plus
@@ -145,7 +176,7 @@ SELECT level, count(*) AS rows,
        count(*) FILTER (WHERE alt_of IS NULL) AS primary_rows,
        count(*) FILTER (WHERE alt_of IS NOT NULL) AS alt_rows,
        count(*) FILTER (WHERE has_boundary) AS with_boundary
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet'
 GROUP BY 1 ORDER BY 1;
 ```
 
@@ -167,7 +198,7 @@ is that point collapsed to zero width.
 
 ```sql
 SELECT name, name_lang, level, country, parent_name, population
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet'
 WHERE name_norm LIKE 'zurich%'
 ORDER BY level, population DESC NULLS LAST;
 ```
@@ -197,7 +228,7 @@ and apostrophe, collapse whitespace, lowercase.
 
 ```sql
 SELECT name, name_lang, name_lang_count, level, country, feature_id
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet'
 WHERE name_norm IN ('munchen', 'monaco di baviera', 'muenchen')
 ORDER BY name_norm;
 ```
@@ -226,7 +257,7 @@ spelling, not one per language.
 ```sql
 SELECT name_norm, count(*) AS rows,
        count(DISTINCT feature_id) AS divisions
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet'
 GROUP BY 1 ORDER BY 2 DESC LIMIT 10;
 ```
 
@@ -255,7 +286,7 @@ SELECT n.name, n.level, n.feature_id,
        n.geometry_ref.file AS file,
        n.geometry_ref.row_group AS row_group,
        n.geometry_ref.row AS row
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet' n
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet' n
 WHERE n.name_norm = 'bengaluru' AND n.alt_of IS NULL;
 ```
 
@@ -276,8 +307,8 @@ footer metadata of both files.
 
 ```sql
 SELECT n.name, n.level, b.subtype, b.area_km2, b.vertices
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet' n
-JOIN 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet' b ON b.division_id = n.feature_id
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet' n
+JOIN 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet' b ON b.division_id = n.feature_id
 WHERE n.name_norm LIKE 'sao paulo%' AND n.level = 2;
 ```
 
@@ -294,7 +325,7 @@ Joining a level-4 row to the county collection returns nothing, and joining on
 
 ```sql
 SELECT name_lang, count(*) AS rows
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet' WHERE name_lang IS NOT NULL
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet' WHERE name_lang IS NOT NULL
 GROUP BY 1 ORDER BY 2 DESC LIMIT 12;
 ```
 
@@ -320,7 +351,7 @@ ja              35171
 SELECT row_group_id AS row_group, num_values AS rows,
        stats_min_value AS first_name_norm,
        stats_max_value AS last_name_norm
-FROM parquet_metadata('https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet')
+FROM parquet_metadata('https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet')
 WHERE path_in_schema = 'name_norm'
   AND row_group_id IN (0, 1, 2, 400, 875);
 ```

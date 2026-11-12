@@ -1,4 +1,4 @@
-# EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)
+# EXPERIMENTAL: Overture Divisions Cloud-Native Gazetteer (ODbL)
 
 > [!WARNING]
 > **This catalog is EXPERIMENTAL.** The schema may change without notice, the
@@ -7,10 +7,17 @@
 > `catalog_version` in [index.json](names/index.json) if you depend on
 > it, and expect to rebuild.
 
-Overture Maps divisions, release `2026-10-21.0`, republished as cloud-native
-GeoParquet and PMTiles for a browser geocoder: five boundary levels from
-country down to locality, each with a display-simplified companion, and a
-multilingual name search index over all of them.
+Overture Maps divisions, release `2026-10-21.0`, republished as a
+**cloud-native gazetteer**: GeoParquet and PMTiles laid out so a browser can
+search and draw administrative places over HTTP range requests, with no server
+and no API key. Five boundary levels from country down to locality, each with a
+display-simplified companion, and a multilingual gazetteer index over all of
+them.
+
+It is a **gazetteer, not a geocoder**: it resolves place names and
+administrative boundaries, not street addresses. There is no house number, no
+street centerline and no interpolation here. The geocoder is the client that
+consumes this.
 
 This is a **mirror**. [Overture Maps Foundation](https://overturemaps.org/)
 produces the data and remains the authoritative source. This catalog adds no
@@ -29,7 +36,7 @@ licence and coverage rather than quality.
 | City and village boundaries | yes | no |
 | Multilingual names | yes, 2,031,617 alternative spellings | no |
 | Stable feature key | Overture GERS id | geoBoundaries `shapeID` |
-| Index size | 407.7 MB, range-request path | 3.6 MB, loads whole |
+| Index size | 409.2 MB, range-request path | 3.6 MB, loads whole |
 
 **Take the CC-BY one unless you need what this one adds.** Share-alike is a
 real obligation: a database you derive from this catalog has to be offered
@@ -46,7 +53,7 @@ application, not to whoever builds it.
 | [`county`](county/collection.json) | 2 | 38,937 | 649.4 MB | 112.5 MB | 88.7 MB |
 | [`localadmin`](localadmin/collection.json) | 3 | 21,502 | 142.6 MB | 53.8 MB | 42.4 MB |
 | [`locality`](locality/collection.json) | 4 | 556,094 | 1.2 GB | 870.7 MB | 682.8 MB |
-| [`names`](names/collection.json) | 0-4 | 5,604,413 | 407.7 MB | - | 146.3 MB |
+| [`names`](names/collection.json) | 0-4 | 5,604,413 | 409.2 MB | - | 146.3 MB |
 
 About 4.7 GB in all. The five boundary levels are **not** a seamless coverage
 the way a composite is: Overture publishes a division where a division exists,
@@ -65,12 +72,12 @@ widgets project implements it:
    index's size, row group count, `catalog_version` and required attribution.
    It renders the attribution immediately, because ODbL requires it whether or
    not a search happens.
-2. **Index load.** The index is 407.7 MB, so the client takes the
-   **range-request path**: one exactly-sized 2,053,386-byte tail request for
+2. **Index load.** The index is 409.2 MB, so the client takes the
+   **range-request path**: one exactly-sized 2,150,142-byte tail request for
    the footer, then a binary search over the row group statistics on
    `name_norm`.
 3. **Keystrokes.** Each typed prefix is folded with the same rule the index
-   used and resolved from a median of 1 row group of about 473.6 KB. Results
+   used and resolved from a median of 1 row group of about 475.2 KB. Results
    arrive as a mixture of primary and alternative-spelling rows, in any
    language; the client dedupes by `feature_id` and ranks on `level`,
    `population`, `prominence`, `name_dupes` and whether the bbox intersects the
@@ -109,6 +116,57 @@ describe the same contract against the smaller index.
 - [names/README.md](names/README.md): the search index, and how to read it
   without downloading it.
 - [catalog.json](catalog.json): the STAC entry point.
+
+## The upstream data vs our optimized files - why both exist and when to use which
+
+Every collection here links the **upstream Overture release** it was built
+from, as `upstream-division-s3`, `upstream-division-area-s3` and
+`upstream-divisions-azure` assets. Nothing in this catalog asks you to take a
+mirror's word for its own contents.
+
+**Use the upstream release when** you want the authoritative bytes, the whole
+theme for analysis in DuckDB or Spark or GDAL, the columns this catalog's
+projection drops, or a second opinion on anything here. It is the product of
+record: Overture publishes it, versions it immutably, and is who you credit.
+
+    s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/
+    (type=division, type=division_area)
+    https://overturemapswestus2.blob.core.windows.net/release/2026-10-21.0/theme=divisions/
+
+Both are public and anonymous, and the requester does not pay. Measured
+2026-11-12, the **S3 HTTPS endpoint sends CORS** (`Access-Control-Allow-Origin:
+*`, with `Content-Range` and `Accept-Ranges` exposed) and answers
+`Accept-Ranges: bytes`, so a browser *can* range-read the upstream release
+directly. The **Azure mirror sends no CORS headers at all** and cannot be read
+from a browser cross-origin.
+
+So reachability is **not** the reason this catalog exists. Layout is. Measured
+on `part-00000` of `type=division`, the upstream file a name search would have
+to read:
+
+| | upstream release | this catalog |
+|---|---|---|
+| files to search by name | 1 file, 584 MB (plus 8 files, 4.6 GB, for the polygons) | one sorted index, 409.2 MB, or the 8.6 MiB prominent index |
+| sorted by name | no - `sorting_columns` not declared | yes, `name_norm` byte-wise, declared in the footer |
+| find one place by name | scan every part file | binary search over row group statistics, one range request |
+| row groups | 256 groups of ~18,400 rows, median 2.22 MB, up to 3.85 MB | 876 groups of 6,400 rows in the index; 8 to 960 rows in the boundary files, sized by what one feature costs |
+| columns | 50 leaf chunks of the full schema, nested structs | a flat projection; 20 columns in the index |
+| footer read | 1.47 MB, and **two** requests, because a speculative 512 KiB tail falls short | exact `footer_bytes` and `footer_metadata_bytes` in `names/index.json`, one request |
+| one division's outline | a multi-megabyte row group of the full schema | one row group of a display file, simplified and outward-buffered |
+| multilingual search | unnest a `names.common` map per row at query time | 2,031,617 pre-expanded alternative-spelling rows, in the sort |
+| tiles | none | PMTiles per collection |
+
+None of that is a criticism of the upstream files: they are laid out for bulk
+analytics, which is what most consumers want, and they are very good at it.
+They are simply not laid out for a browser answering a keystroke, and no amount
+of client cleverness fixes a 2.22 MB row group or an undeclared sort. That is
+the whole content of this catalog: the same data, reprojected and relaid out,
+so each of those rows in the right-hand column is one small range request.
+
+What this catalog changes about the data itself - every row and column it
+drops, derives or adds - is in
+[changes-from-upstream.md](changes-from-upstream.md). Read it before you treat
+anything here as vanilla Overture.
 
 ## License and attribution
 
@@ -171,6 +229,6 @@ in its [release notes](https://docs.overturemaps.org/blog/) and schedules them
 on its [release calendar](https://docs.overturemaps.org/release-calendar/).
 
 The [source
-repository](https://github.com/portolan-mirrors/cn-geocoder-overture) holds the
-pipeline that built this, the per-collection provenance records and the issue
-tracker.
+repository](https://github.com/portolan-mirrors/cn-gazetteer-overture) holds
+the pipeline that built this, the per-collection provenance records and the
+issue tracker.

@@ -51,7 +51,7 @@
         "processor",
         "host"
       ],
-      "url": "https://github.com/portolan-mirrors/cn-geocoder-overture"
+      "url": "https://github.com/portolan-mirrors/cn-gazetteer-overture"
     }
   ],
   "extent": {
@@ -275,6 +275,36 @@
       "file:size": 974,
       "file:checksum": "12200f0969d9ffe19bc10709772d5ea060fedae7b9fd28ad1535f1226f01f37e6581"
     },
+    "upstream-division-s3": {
+      "href": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-10-21.0/theme=divisions/type=division/",
+      "type": "application/vnd.apache.parquet",
+      "title": "Overture release 2026-10-21.0, type=division, on S3 over HTTPS (1 file, 0.58 GB)",
+      "roles": [
+        "data",
+        "source"
+      ],
+      "description": "Every division record in the release: the names, the hierarchy and a point per division. The names collection here is built from this type, and every collection takes its names from it. The same bytes are addressable as `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/type=division/` for DuckDB, GDAL and the AWS CLI; the bucket is public and anonymous and the requester does not pay. Measured 2026-11-12, this HTTPS endpoint answers `Accept-Ranges: bytes` and sends `Access-Control-Allow-Origin: *` with `Content-Range` and `Accept-Ranges` exposed, so a browser can range-read it cross-origin. This is the authoritative release, not a copy of it: use it for bulk download, for analysis over the whole theme, and for anything where the answer has to come from Overture rather than from a mirror. It is not what this catalog's files are for, and the difference is layout rather than reachability -- measured 2026-11-12 on part-00000 of type=division: 4,700,999 rows in 256 row groups of about 18,400 rows, median 2.22 MB and up to 3.85 MB compressed per row group, 50 leaf column chunks, no declared sort, and a 1.47 MB footer that takes a reader two requests because a speculative 512 KiB tail falls short. Finding one place by name in it means scanning every part file; pulling one division's geometry means fetching a multi-megabyte row group of the full 50-column schema. The files in this catalog are the same data sorted, projected and laid out so that each of those is one small range request. See the catalog README's \"The upstream data vs our optimized files\"."
+    },
+    "upstream-division-area-s3": {
+      "href": "https://overturemaps-us-west-2.s3.us-west-2.amazonaws.com/release/2026-10-21.0/theme=divisions/type=division_area/",
+      "type": "application/vnd.apache.parquet",
+      "title": "Overture release 2026-10-21.0, type=division_area, on S3 over HTTPS (8 files, 4.58 GB)",
+      "roles": [
+        "data",
+        "source"
+      ],
+      "description": "The polygons. Every boundary collection in this catalog is a projection of one `subtype` of this type, joined to type=division for names. Also addressable as `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/type=division_area/`. Same public anonymous access and the same CORS headers as type=division. This is the authoritative release, not a copy of it: use it for bulk download, for analysis over the whole theme, and for anything where the answer has to come from Overture rather than from a mirror. It is not what this catalog's files are for, and the difference is layout rather than reachability -- measured 2026-11-12 on part-00000 of type=division: 4,700,999 rows in 256 row groups of about 18,400 rows, median 2.22 MB and up to 3.85 MB compressed per row group, 50 leaf column chunks, no declared sort, and a 1.47 MB footer that takes a reader two requests because a speculative 512 KiB tail falls short. Finding one place by name in it means scanning every part file; pulling one division's geometry means fetching a multi-megabyte row group of the full 50-column schema. The files in this catalog are the same data sorted, projected and laid out so that each of those is one small range request. See the catalog README's \"The upstream data vs our optimized files\"."
+    },
+    "upstream-divisions-azure": {
+      "href": "https://overturemapswestus2.blob.core.windows.net/release/2026-10-21.0/theme=divisions/",
+      "type": "application/vnd.apache.parquet",
+      "title": "Overture release 2026-10-21.0, divisions theme, on the Azure Blob mirror",
+      "roles": [
+        "data",
+        "source"
+      ],
+      "description": "Overture publishes every release to Azure Blob Storage as well as to S3, and these are the same files under `type=division/` and `type=division_area/`. **It sends no CORS headers**, measured 2026-11-12, so unlike the S3 HTTPS endpoint it cannot be read from a browser cross-origin; it is for server-side and CLI consumers, and for anyone whose egress is cheaper from Azure. This is the authoritative release, not a copy of it: use it for bulk download, for analysis over the whole theme, and for anything where the answer has to come from Overture rather than from a mirror. It is not what this catalog's files are for, and the difference is layout rather than reachability -- measured 2026-11-12 on part-00000 of type=division: 4,700,999 rows in 256 row groups of about 18,400 rows, median 2.22 MB and up to 3.85 MB compressed per row group, 50 leaf column chunks, no declared sort, and a 1.47 MB footer that takes a reader two requests because a speculative 512 KiB tail falls short. Finding one place by name in it means scanning every part file; pulling one division's geometry means fetching a multi-megabyte row group of the full 50-column schema. The files in this catalog are the same data sorted, projected and laid out so that each of those is one small range request. See the catalog README's \"The upstream data vs our optimized files\"."
+    },
     "overture-division-schema": {
       "href": "../_assets/overture/division.schema.yaml",
       "type": "application/yaml",
@@ -411,7 +441,7 @@
       "rel": "related",
       "href": "../names/collection.json",
       "type": "application/json",
-      "title": "Overture Divisions Multilingual Name Search Index"
+      "title": "Overture Divisions Multilingual Gazetteer (Name Index)"
     },
     {
       "rel": "pmtiles",

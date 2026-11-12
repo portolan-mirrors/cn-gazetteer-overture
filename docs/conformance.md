@@ -46,11 +46,40 @@ because rashid asks for a decision and silence is not one.
 |---|---|---|
 | PTL-PRO-002 | all six collections | No `rel:"canonical"` link. The rule asks for one **when the upstream publishes its own STAC catalog**. Overture does not: the divisions theme is published as Parquet on S3 and Azure Blob with documentation at docs.overturemaps.org, and there is no STAC object to point at. The `via` link names the theme guide and the `cite-as` link names Overture instead. Revisit if Overture publishes STAC. |
 
-`portolan check` additionally reports that 17 registered assets are missing
-from disk. That is the publish boundary working as intended: the GeoParquet
-and PMTiles files live in object storage and never enter git, and the STAC
-references them by the public URL that `catalog.publish.yaml` builds. Run the
-check against the published tree to see them resolve.
+`portolan check` additionally reports two things, both expected.
+
+**"18 registered asset(s) are missing from disk."** That is the publish
+boundary working as intended: the GeoParquet and PMTiles files live in object
+storage and never enter git, and the STAC references them by the public URL
+that `catalog.publish.yaml` builds. Three of the eighteen per collection are
+the upstream release assets below, which never live on disk at all. Run the
+check against the published tree to see the catalog's own files resolve.
+
+**48 PTL-AST-003 warnings, "has no file:size" / "has no file:checksum".**
+These are the three upstream release assets on each of the six collections:
+`upstream-division-s3`, `upstream-division-area-s3` and
+`upstream-divisions-azure`. They point at Overture's authoritative release so
+that no consumer has to take this mirror's word for its own contents, and they
+deliberately carry neither property:
+
+- `file:checksum` would be a multihash of a *prefix* holding one to eight part
+  files. There is no defined digest for that, and inventing one would be worse
+  than omitting it.
+- `file:size` was tried and reverted. `portolan check` verifies a declared
+  size against the bytes it can reach, reaches nothing for a remote href, and
+  reports `PTL-DAT-002 ... file:size is 5167189981 but the bytes are 0` — an
+  **error** where the omission is only a warning. Declaring it made conformance
+  strictly worse.
+
+The byte totals are in each asset's `title` instead (0.58 GB for
+`type=division`, 4.58 GB for `type=division_area`), where they inform a reader
+without claiming to be a verifiable property of a file this repository holds.
+Both numbers come from listing the Azure container on 2026-11-12.
+
+`portolan check --fix` offers to fix all 48. Do not let it: it would either
+remove the upstream links or fabricate digests, and those links are a
+requirement rather than an oversight. See the `AGENTS.md` section "Link the
+upstream release from every collection".
 
 <!--
 When you accept one, add a row and a section explaining it, like this:

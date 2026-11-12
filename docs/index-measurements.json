@@ -1,12 +1,12 @@
 {
   "rows": 5604413,
-  "size": 427507857,
-  "bytes_per_row": 76.28,
+  "size": 429055759,
+  "bytes_per_row": 76.56,
   "row_groups": 876,
   "row_group_rows": 6400,
-  "mean_row_group_bytes": 484969,
-  "footer_bytes": 2053386,
-  "page_index_bytes": 621352,
+  "mean_row_group_bytes": 486573,
+  "footer_bytes": 2150142,
+  "page_index_bytes": 667468,
   "prefixes": 189359,
   "groups_per_prefix": {
     "min": 1,

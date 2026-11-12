@@ -1,4 +1,4 @@
-# EXPERIMENTAL: Overture divisions for geocoding
+# EXPERIMENTAL: Overture divisions as a cloud-native gazetteer
 
 > [!WARNING]
 > **This catalog is EXPERIMENTAL.** The schema may change without notice, the
@@ -8,13 +8,22 @@
 > expect to rebuild.
 
 A git-backed [Portolan](https://www.portolan-sdi.org/) catalog that mirrors the
-[Overture Maps](https://overturemaps.org/) **divisions** theme as cloud-native
-GeoParquet and PMTiles, shaped for a browser geocoder: five boundary levels
-from country down to locality, each with a display-simplified companion, and a
-multilingual name search index over all of them.
+[Overture Maps](https://overturemaps.org/) **divisions** theme as a
+**cloud-native gazetteer**: GeoParquet and PMTiles laid out so a browser can
+search and draw administrative places over HTTP range requests, with no server
+and no API key. Five boundary levels from country down to locality, each with a
+display-simplified companion, and a multilingual gazetteer index over all of
+them — plus a small *prominent* index, 8.6 MiB against the full 409 MB, holding
+the rows a first keystroke is likely to want.
+
+It is a **gazetteer, not a geocoder**: it resolves place names and
+administrative boundaries, not street addresses. There is no house number, no
+street centerline and no interpolation here. The geocoder is the client that
+consumes it, and it lives in the
+[cloud-native map widgets](https://github.com/cholmes/cn-geocoding) project.
 
 Published at
-[source.coop/portolan-mirrors/cn-geocoder-overture](https://source.coop/portolan-mirrors/cn-geocoder-overture).
+[source.coop/portolan-mirrors/cn-gazetteer-overture](https://source.coop/portolan-mirrors/cn-gazetteer-overture).
 The catalog metadata lives in this repository; the data lives in object storage
 beside it.
 
@@ -59,7 +68,7 @@ Six collections. Every number here comes from the built files;
 | `county` | 2 | 38,937 | 649 MB, 406 groups of 96 | 113 MB |
 | `localadmin` | 3 | 21,502 | 143 MB, 90 groups of 240 | 54 MB |
 | `locality` | 4 | 556,094 | 1.2 GB, 580 groups of 960 | 871 MB |
-| `names` | 0-4 | millions | sorted by folded name | - |
+| `names` | 0-4 | 5,604,413 | 409 MB, 876 groups of 6,400, sorted by folded name | 8.6 MiB prominent index |
 
 **The row group sizes are one reason this catalog exists.** Every boundary
 level gets a row group count measured from its own compressed bytes per row,
@@ -67,14 +76,31 @@ landing every group between 1.5 and 1.7 MB, with GeoParquet 1.1 bbox covering
 metadata, a Hilbert row order and a Parquet page index on every column, so a
 reader finds one division's geometry without decoding any other.
 
-**The other reason is the search index.** Overture publishes names in hundreds
-of languages, and nothing in the release is ordered so a typed prefix can be
-found cheaply. The index is one row per division plus one row per distinct
-alternative spelling, sorted byte-wise by a folded form of the name, with row
-groups sized so a keystroke is one small range request.
+**The other reason is the gazetteer index.** Overture publishes names in
+hundreds of languages, and nothing in the release is ordered so a typed prefix
+can be found cheaply. The index is one row per division plus one row per
+distinct alternative spelling, sorted byte-wise by a folded form of the name,
+with row groups sized so a keystroke is one small range request.
 
-The three products Overture does not publish, and the reasoning behind each,
-are in [catalog/changes-from-upstream.md](catalog/changes-from-upstream.md).
+**The prominent index** is the third piece. The full index is 409 MB, which
+means every keystroke is a round trip. `overture_division_names_prominent.parquet`
+is the same schema and the same sort over a strict row subset — every division
+from country down to localadmin, every alternative-language spelling of every
+country, and every locality Overture ranks at `cartography.prominence` 50 or
+above — at 8.6 MiB, small enough to fetch whole on focus and answer keystrokes
+from memory. `tools/build_prominent.py` owns the criteria and the measurement
+grid behind them, and `catalog/names/index.json` publishes both under
+`prominent_index.criteria` so a client knows what the small file can miss and
+when to fall back.
+
+**Every file entry in the manifest carries `footer_bytes` and
+`footer_metadata_bytes`**, the exact trailing-metadata sizes, so a client reads
+a file's footer in one exactly-sized request instead of hyparquet's speculative
+512 KiB tail. On the full index, whose footer is 2.1 MB, that speculation is a
+guaranteed second round trip.
+
+The products Overture does not publish, and the reasoning behind each, are in
+[catalog/changes-from-upstream.md](catalog/changes-from-upstream.md).
 
 ## Build it
 
@@ -88,7 +114,8 @@ python3 tools/stage_source.py --dry-run   # what the two remote scans will fetch
 python3 tools/stage_source.py             # 4.6 GB from Overture's S3, ~21 min
 python3 tools/build_boundaries.py         # -> 5 GeoParquet files
 python3 tools/build_display.py            # -> 5 simplified companions
-python3 tools/build_names.py              # -> the search index and its manifest
+python3 tools/build_names.py              # -> the gazetteer index and its manifest
+python3 tools/build_prominent.py          # -> the prominent index, and patches the manifest
 python3 tools/build_pmtiles.py            # -> 6 PMTiles archives
 python3 tools/measure_index.py            # -> docs/index-measurements.md
 python3 tools/make_breaks.py              # -> tools/style_breaks.py, measured

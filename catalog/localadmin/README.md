@@ -95,7 +95,7 @@ never compute an area from it.
 INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;
 
 SELECT name, subtype, country, area_km2, population
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/localadmin/overture_localadmin.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin/overture_localadmin.parquet'
 WHERE division_id = '<a GERS id from the names collection>';
 ```
 
@@ -176,7 +176,7 @@ changes, drops and adds are in
   [division.schema.yaml](../_assets/overture/division.schema.yaml),
   [division_area.schema.yaml](../_assets/overture/division_area.schema.yaml)
 - The [pipeline and issue
-  tracker](https://github.com/portolan-mirrors/cn-geocoder-overture) for this
+  tracker](https://github.com/portolan-mirrors/cn-gazetteer-overture) for this
   catalog.
 
 ## Known issues
@@ -239,4 +239,4 @@ which the names collection publishes.
 
 The whole collection, with every column described, is in
 [collection.json](collection.json). The human-facing page is at
-[https://source.coop/portolan-mirrors/cn-geocoder-overture/localadmin](https://source.coop/portolan-mirrors/cn-geocoder-overture/localadmin).
+[https://source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin](https://source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin).

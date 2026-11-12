@@ -48,10 +48,49 @@ and carries the same ``feature_id``, so a consumer that has matched an alt row
 already has to dedupe by ``feature_id`` before it shows a result. Repeating a
 21-byte WKB point and a row reference on every one of two million alt rows
 bought nothing and cost 60 MB.
+
+The four ranking columns, and why they are in the index
+-------------------------------------------------------
+A prefix search over 5.6 million names returns thousands of candidates, and
+which three a user sees is decided entirely by what the index lets a client
+rank on. Ranking verification against this catalog found the failure mode: a
+short prefix like ``bag`` is dominated by **alternative-language rows of
+countries and regions** -- Tajik and Uzbek transliterations of "Bahamas" and
+the like -- which bury Baghdad, because a country outranks a city on every
+signal a client had. ``area_km2`` makes it worse rather than better, since a
+country always dwarfs a city. So the index carries four signals that let a
+client rank on importance rather than on size:
+
+* ``class`` -- Overture's locality classification, one of ``city``, ``town``,
+  ``village``, ``hamlet``. Measured on this release: populated on 3,394,627 of
+  3,508,156 localities (113,529 null) and null on every division above
+  locality, which is why it is a ranking signal and not a filter. The
+  distribution is hamlet 1,715,416, village 1,561,816, town 103,175, city
+  14,220 -- so ``class IN ('city','town')`` is 117,395 places, and that is the
+  separation a client needs to float Baghdad above a transliterated country
+  name.
+* ``population`` -- Overture's own figure, carried byte for byte. It is
+  **sparse and that is a property of the release, not of this build**:
+  measured coverage is 79.9% of countries (175 of 219), 30.6% of regions,
+  21.3% of counties, 35.0% of localadmins and 17.7% of localities (621,090 of
+  3,508,156). A client must treat null as unknown rather than as zero, or
+  every unpopulated place sorts last.
+* ``prominence`` -- ``cartography.prominence``, Overture's 1-100 cartographic
+  ranking. Populated on all 3,508,156 localities and on nothing else. It is
+  the densest signal at level 4 and the one the prominent index cuts on.
+* ``alt_of`` -- null on a primary row, the division's own ``feature_id`` on an
+  alternative-name row. This is what makes an alt-language match cheaply
+  distinguishable from a match on the published name, so a client can penalize
+  one against the other instead of treating "Bagamalar" and "Baghdad" as
+  equally direct hits.
+
+All four are dictionary- or fixed-width-encoded and cost little: ``class``
+adds five distinct values and a null across 5.6 million rows.
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 import time
@@ -78,6 +117,7 @@ from ovcommon import (
     geom_expr,
     human,
     normalize_name,
+    parquet_entry,
     pycountry_version,
     register_iso3166,
     ROW_GROUP_ROWS,
@@ -112,8 +152,8 @@ BATCH_ROWS = NAMES_ROW_GROUP_ROWS * 128
 # would prune nothing, because the file is sorted by `name_norm` and nothing
 # else, so their ranges overlap across every group.
 STATISTICS_COLUMNS = [
-    "name_norm", "level", "subtype", "country", "source", "has_boundary",
-    "name_lang", "name_lang_count", "name_dupes",
+    "name_norm", "level", "subtype", "class", "country", "source",
+    "has_boundary", "name_lang", "name_lang_count", "name_dupes",
 ]
 
 LEVEL_CASE = " ".join(
@@ -132,6 +172,7 @@ SELECT
   d.names.common                              AS common,
   CASE d.subtype {level_case} END::TINYINT    AS level,
   d.subtype,
+  d."class"                                   AS class,
   coalesce(i.alpha_3, d.country)              AS country,
   d.population,
   d.cartography.prominence                    AS prominence,
@@ -156,7 +197,7 @@ CREATE OR REPLACE TABLE rows_raw AS
 WITH prim AS (
   SELECT feature_id, name, NULL::VARCHAR AS name_lang,
          1::INTEGER AS name_lang_count, NULL::VARCHAR AS alt_of,
-         level, subtype, country, population, prominence, parent_name,
+         level, subtype, class, country, population, prominence, parent_name,
          row_index, collection, area_km2, boundary_bbox, boundary_point,
          division_point, division_bbox
   FROM base
@@ -164,7 +205,7 @@ WITH prim AS (
 alts AS (
   SELECT b.feature_id, kv.value AS name, kv.key AS name_lang,
          1::INTEGER AS name_lang_count, b.feature_id AS alt_of,
-         b.level, b.subtype, b.country, b.population, b.prominence,
+         b.level, b.subtype, b.class, b.country, b.population, b.prominence,
          b.parent_name, b.row_index, b.collection, b.area_km2,
          b.boundary_bbox, b.boundary_point, b.division_point, b.division_bbox
   FROM base b, unnest(map_entries(b.common)) AS t(kv)
@@ -265,8 +306,8 @@ combined AS (
   FROM alt_kept
 ),
 attributed AS (
-  SELECT c.*, b.level, b.subtype, b.country, b.population, b.prominence,
-         b.parent_name, b.row_index, b.collection, b.area_km2,
+  SELECT c.*, b.level, b.subtype, b.class, b.country, b.population,
+         b.prominence, b.parent_name, b.row_index, b.collection, b.area_km2,
          b.boundary_bbox, b.boundary_point, b.division_point, b.division_bbox
   FROM combined c JOIN base b USING (feature_id)
 )
@@ -280,6 +321,7 @@ SELECT
   name_norm,
   level,
   subtype,
+  class,
   country,
   feature_id,
   '{source}'::VARCHAR AS source,
@@ -304,6 +346,85 @@ FROM rows_reduced
 LEFT JOIN row_group_rows g USING (collection)
 ORDER BY name_norm, level, country, feature_id
 """
+
+
+def prominent_index_entry() -> dict | None:
+    """The `prominent_index` block, or None when that file has not been built.
+
+    This is the second index: the same schema and the same sort as the full
+    one, holding only the rows a first keystroke is likely to want, small
+    enough that a client can fetch it whole on focus and answer keystrokes
+    from memory while the 408 MB index stays available by range request for
+    anything deeper. `tools/build_prominent.py` writes it and owns the
+    criteria; this reads the file and the constants back so the manifest
+    cannot drift from what was written.
+
+    The criteria are published in full rather than summarized, because a
+    client that does not know what was left out cannot know when a miss here
+    means "no such place" and when it means "ask the full index".
+    """
+    import build_prominent as bp
+
+    if not bp.OUT.exists():
+        print(
+            f"  note: {bp.OUT.name} is not built, so the manifest carries no "
+            "prominent_index. Run tools/build_prominent.py."
+        )
+        return None
+    entry = parquet_entry(bp.OUT, f"./{bp.OUT.name}")
+    md = pq.ParquetFile(bp.OUT).metadata
+    by_level = pq.read_table(bp.OUT, columns=["level", "alt_of"])
+    levels = by_level.column("level").to_pylist()
+    alts = by_level.column("alt_of").to_pylist()
+    rows_per_level = {}
+    for level, alt in zip(levels, alts):
+        bucket = rows_per_level.setdefault(
+            str(level), {"rows": 0, "primary_rows": 0, "alt_rows": 0}
+        )
+        bucket["rows"] += 1
+        bucket["alt_rows" if alt is not None else "primary_rows"] += 1
+    return {
+        **entry,
+        "checksum": "1220" + hashlib.sha256(bp.OUT.read_bytes()).hexdigest(),
+        "row_group_rows": bp.ROW_GROUP_ROWS,
+        "sorted_by": ["name_norm", "level", "country", "feature_id"],
+        "of": f"./{NAMES_PATH.name}",
+        "load": "eager",
+        "rows_per_level": {
+            k: rows_per_level[k] for k in sorted(rows_per_level, key=int)
+        },
+        "criteria": {
+            "primary_levels": list(bp.PRIMARY_LEVELS),
+            "alt_levels": list(bp.ALT_LEVELS),
+            "prominence_cut": bp.PROMINENCE_CUT,
+            "prominence_column": "prominence",
+            "description": (
+                "A strict row subset of the full index, in the same schema "
+                "and the same sort, so a hit found here resolves its geometry "
+                "exactly as a hit found there: same feature_id, same "
+                "geometry_ref, same name_norm. A row is included when it is "
+                "(a) a primary row at level "
+                f"{', '.join(str(x) for x in bp.PRIMARY_LEVELS)} -- country, "
+                "dependency, region, county, localadmin; or (b) an "
+                "alternative-name row at level "
+                f"{', '.join(str(x) for x in bp.ALT_LEVELS)}; or (c) a level-4 "
+                "locality row, primary or alternative, whose Overture "
+                f"cartography.prominence is >= {bp.PROMINENCE_CUT}. "
+                "prominence is Overture's own 1-100 cartographic ranking, "
+                "populated on every locality and on nothing else; it is "
+                "guidance rather than a measurement, so this is a recall "
+                "boundary and not a claim that an excluded place is "
+                "unimportant."
+            ),
+            "fallback": (
+                "Query the full index for anything this file can miss: any "
+                "locality below the prominence cut, and any "
+                "alternative-language name of a region, county, localadmin or "
+                "locality. Every row of this file is also in the full index, "
+                "so a client may query both and dedupe by feature_id."
+            ),
+        },
+    }
 
 
 def write_index(con, *, started: float) -> dict:
@@ -492,7 +613,6 @@ def write_manifest(stats: dict, extra: dict, counts: dict) -> None:
     is a kilobyte of pointers and it has to stay in step with the STAC the
     publisher uploads.
     """
-    import hashlib
     from pathlib import Path
 
     repo_catalog = Path(__file__).resolve().parents[1] / "catalog" / "names"
@@ -502,8 +622,6 @@ def write_manifest(stats: dict, extra: dict, counts: dict) -> None:
         disp = display_path(collection)
         if not (full.exists() and disp.exists()):
             sys.exit(f"missing {full} or {disp}; run the boundary builds first")
-        fmd = pq.ParquetFile(full).metadata
-        dmd = pq.ParquetFile(disp).metadata
         boundaries.append(
             {
                 "level": COLLECTION_LEVEL[collection],
@@ -511,18 +629,8 @@ def write_manifest(stats: dict, extra: dict, counts: dict) -> None:
                 "feature_id_column": "division_id",
                 "geometry_column": "geometry",
                 "row_group_rows": ROW_GROUP_ROWS[collection],
-                "full": {
-                    "url": f"../{collection}/{full.name}",
-                    "size": full.stat().st_size,
-                    "row_count": fmd.num_rows,
-                    "row_groups": fmd.num_row_groups,
-                },
-                "display": {
-                    "url": f"../{collection}/{disp.name}",
-                    "size": disp.stat().st_size,
-                    "row_count": dmd.num_rows,
-                    "row_groups": dmd.num_row_groups,
-                },
+                "full": parquet_entry(full, f"../{collection}/{full.name}"),
+                "display": parquet_entry(disp, f"../{collection}/{disp.name}"),
             }
         )
 
@@ -544,14 +652,13 @@ def write_manifest(stats: dict, extra: dict, counts: dict) -> None:
         "stats_truncated": extra["stats_truncated"],
         "dropped_unnamed": counts["dropped_unnamed"],
         "index": {
-            "url": f"./{NAMES_PATH.name}",
-            "size": stats["size"],
+            **parquet_entry(NAMES_PATH, f"./{NAMES_PATH.name}"),
             "checksum": "1220"
             + hashlib.sha256(NAMES_PATH.read_bytes()).hexdigest(),
-            "row_groups": stats["row_groups"],
             "row_group_rows": NAMES_ROW_GROUP_ROWS,
             "sorted_by": ["name_norm", "level", "country", "feature_id"],
         },
+        "prominent_index": prominent_index_entry(),
         "boundaries": boundaries,
         "attribution": [
             {

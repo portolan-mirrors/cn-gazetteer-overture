@@ -9,13 +9,13 @@ comes from here. Rerun after any rebuild.
 | | |
 |---|---|
 | Rows | 5,604,413 |
-| Size | 407.7 MB (427,507,857 bytes) |
-| Bytes per row | 76.3 |
+| Size | 409.2 MB (429,055,759 bytes) |
+| Bytes per row | 76.6 |
 | Row groups | 876 of 6,400 rows |
-| Mean row group | 473.6 KB |
-| Footer metadata | 2,053,386 bytes (0.48% of the file) |
-| Page index | 621,352 bytes (0.15% of the file) |
-| Columns | 19 |
+| Mean row group | 475.2 KB |
+| Footer metadata | 2,150,142 bytes (0.50% of the file) |
+| Page index | 667,468 bytes (0.16% of the file) |
+| Columns | 20 |
 
 A range-request client fetches the footer metadata once, and the
 index manifest declares `index.size` so that fetch can be one
@@ -68,7 +68,7 @@ row group statistics.
 | 95th percentile | 1 |
 | maximum | 22 |
 
-So a typed two-letter prefix costs a median of 1 row group read of about 473.6 KB, on top of the 2,053,386-byte footer metadata read that happens once, and never more than 22.
+So a typed two-letter prefix costs a median of 1 row group read of about 475.2 KB, on top of the 2,150,142-byte footer metadata read that happens once, and never more than 22.
 
 The worst prefixes, which are the common ones:
 
@@ -90,7 +90,7 @@ The worst prefixes, which are the common ones:
 | column | bytes | share |
 |---|---|---|
 | `feature_id` | 106,833,636 | 25.1% |
-| `geometry` | 58,868,346 | 13.9% |
+| `geometry` | 58,868,346 | 13.8% |
 | `alt_of` | 37,853,068 | 8.9% |
 | `parent_name` | 33,308,671 | 7.8% |
 | `bbox.xmin` | 27,367,908 | 6.4% |
@@ -104,6 +104,7 @@ The worst prefixes, which are the common ones:
 | `geometry_ref.row` | 3,171,539 | 0.7% |
 | `prominence` | 3,022,520 | 0.7% |
 | `country` | 2,681,378 | 0.6% |
+| `class` | 1,405,030 | 0.3% |
 | `name_lang` | 1,391,398 | 0.3% |
 | `geometry_ref.row_group` | 1,386,898 | 0.3% |
 | `name_dupes` | 1,287,675 | 0.3% |

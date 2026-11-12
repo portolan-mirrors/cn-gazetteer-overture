@@ -36,6 +36,52 @@ S3_REGION = "us-west-2"
 S3_THEME = f"s3://{S3_BUCKET}/release/{RELEASE}/theme=divisions"
 EXTRACTION_DATE = "2026-11-12"
 
+# ---------------------------------------------------------------------------
+# The upstream release, addressed directly
+# ---------------------------------------------------------------------------
+# Every collection links the authoritative files it was built from, so nobody
+# has to take this mirror's word for its own contents and anybody who wants
+# the real thing for bulk or analytical work can skip this catalog entirely.
+# See the README's "The upstream data vs our optimized files".
+#
+# Three forms of the same bytes, because they are not interchangeable in
+# practice:
+#
+# * `s3://` -- what DuckDB, GDAL and the AWS CLI take. Public and anonymous,
+#   requester does not pay.
+# * HTTPS on the S3 endpoint -- what a browser or a plain `curl` takes.
+#   Measured 2026-11-12: it answers `Accept-Ranges: bytes` and sends
+#   `Access-Control-Allow-Origin: *` with `Content-Range` and `Accept-Ranges`
+#   exposed, so a browser *can* range-read the upstream release directly. That
+#   is worth stating precisely, because the reason this catalog exists is
+#   layout rather than reachability (again, see the README).
+# * HTTPS on the Azure mirror -- the same release, published by Overture to
+#   Azure Blob. Measured on the same date: it serves the files but sends **no
+#   CORS headers at all**, so it is not browser-reachable cross-origin.
+S3_HTTPS_THEME = (
+    f"https://{S3_BUCKET}.s3.{S3_REGION}.amazonaws.com/release/{RELEASE}"
+    "/theme=divisions"
+)
+AZURE_ACCOUNT = "overturemapswestus2"
+AZURE_HTTPS_THEME = (
+    f"https://{AZURE_ACCOUNT}.blob.core.windows.net/release/{RELEASE}"
+    "/theme=divisions"
+)
+
+# Measured against the release on 2026-11-12, by listing the Azure container
+# and by reading part-00000 of each type with tools/measure_reads.mjs:
+#
+#   type=division        1 file    0.58 GB   4,700,999 rows in part-00000
+#   type=division_area   8 files   4.58 GB
+#
+# part-00000 of type=division holds its 4,700,999 rows in 256 row groups of
+# about 18,400 rows, median 2.22 MB and up to 3.85 MB compressed per group,
+# across 50 leaf column chunks, and declares no sorting columns. Its footer
+# alone is 1.47 MB and hyparquet needs two requests to read it, because its
+# speculative 512 KiB tail falls short.
+UPSTREAM_FILES = {"division": 1, "division_area": 8}
+UPSTREAM_BYTES = {"division": 584_189_981, "division_area": 4_583_000_000}
+
 # The release's own documentation and attribution pages, cited throughout the
 # catalog metadata.
 DOCS_DIVISIONS = "https://docs.overturemaps.org/guides/divisions"
@@ -462,6 +508,67 @@ def geo_metadata(
 # footer; all three must agree or the geocoder refuses the fast path.
 CATALOG_VERSION = f"overture-divisions-{RELEASE}"
 CNMW_VERSION_KEY = "cnmw:catalog_version"
+
+
+def trailing_bytes(path) -> tuple[int, int]:
+    """``(footer_metadata, page_index)`` -- the two metadata spans at the end.
+
+    Parquet writes the page index after the last row group and the thrift
+    footer after that, so everything from the end of the last column chunk's
+    pages to EOF is metadata and nothing else.
+
+    A range client has to read that metadata before it can read any row group,
+    and it has no way to know how big it is: hyparquet speculates a 512 KiB
+    tail and fetches again when it guesses short. On this catalog's 408 MB
+    index the footer alone is 2 MB, so the speculation is a *guaranteed*
+    second round trip on every first query. Publishing both numbers in
+    ``index.json`` removes it:
+
+    * their sum, published as ``footer_bytes`` -- one request of exactly that
+      many bytes from the end of the file leaves a client holding every piece
+      of metadata the file has, footer and page index together;
+    * the first element alone, published as ``footer_metadata_bytes`` -- the
+      minimum a reader needs to locate row groups. hyparquet never reads the
+      page index bodies, because it has no sub-chunk read, so a hyparquet
+      client should ask for this one.
+
+    ``file_offset`` is optional in the format and PyArrow writes 0 for it, so a
+    chunk's start is taken from its dictionary page where it has one and from
+    its first data page otherwise.
+    """
+    import pyarrow.parquet as pq
+
+    path = Path(path)
+    md = pq.ParquetFile(path).metadata
+    last = md.row_group(md.num_row_groups - 1)
+    end_of_data = 0
+    for i in range(last.num_columns):
+        col = last.column(i)
+        start = col.dictionary_page_offset or col.data_page_offset
+        end_of_data = max(end_of_data, start + col.total_compressed_size)
+    size = path.stat().st_size
+    with path.open("rb") as fh:
+        fh.seek(-8, 2)
+        metadata_len = int.from_bytes(fh.read(8)[:4], "little")
+    footer = metadata_len + 8
+    return footer, size - end_of_data - footer
+
+
+def parquet_entry(path, url: str) -> dict:
+    """The measured manifest description of one published Parquet file."""
+    import pyarrow.parquet as pq
+
+    path = Path(path)
+    md = pq.ParquetFile(path).metadata
+    footer, page_index = trailing_bytes(path)
+    return {
+        "url": url,
+        "size": path.stat().st_size,
+        "row_count": md.num_rows,
+        "row_groups": md.num_row_groups,
+        "footer_bytes": footer + page_index,
+        "footer_metadata_bytes": footer,
+    }
 
 
 def footer_metadata(extra: dict[str, str] | None = None) -> dict[bytes, bytes]:

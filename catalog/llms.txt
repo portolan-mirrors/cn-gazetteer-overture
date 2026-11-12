@@ -8,11 +8,11 @@
 > this catalog republishes, it does not produce.
 
 Public root:
-https://data.source.coop/portolan-mirrors/cn-geocoder-overture/catalog.json
+https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/catalog.json
 
 EXPERIMENTAL: the schema may change without notice and the hosting repository
 is unlisted. Pin the catalog_version from
-https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/index.json
+https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/index.json
 if you depend on it.
 
 This is a Portolan catalog, which is STAC 1.1.0 plus the Portolan profile.
@@ -30,89 +30,89 @@ This is NOT a byte-for-byte mirror. It keeps only the land polygon of each
 division, excludes the neighborhood, microhood and macrohood subtypes, derives
 an ISO 3166-1 alpha-3 country code, and adds display-simplified geometry, a
 search index and vector tiles. Every deviation is in
-https://data.source.coop/portolan-mirrors/cn-geocoder-overture/changes-from-upstream.md
+https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/changes-from-upstream.md
 .
 
 ## Read these first
 
 - [Catalog agent
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/AGENTS.md):
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/AGENTS.md):
   the collections, the join keys, and the nine traps that produce wrong
   answers.
 - [Catalog
-  README](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/README.md):
+  README](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/README.md):
   what is here, which of the two catalogs to use, the license, and how a
   geocoder widget consumes it end to end.
 - [Search index
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/AGENTS.md):
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/AGENTS.md):
   the range-request path, multilingual lookup, and the join back to geometry.
 - [Index
-  manifest](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/index.json):
+  manifest](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/index.json):
   fetch this before the index itself.
 - [Changes from vanilla
-  Overture](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/changes-from-upstream.md).
+  Overture](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/changes-from-upstream.md).
 - [Root
-  catalog.json](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/catalog.json):
+  catalog.json](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/catalog.json):
   the STAC entry point.
 
 ## Collections
 
 - [country — Country and Dependency
-  Boundaries](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/country/collection.json):
+  Boundaries](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/country/collection.json):
   level 0, 272 rows, 51.4 MB GeoParquet in 34 row groups of 8. [agent
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/country/AGENTS.md)
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/country/AGENTS.md)
 - [region — Region
-  Boundaries](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/region/collection.json):
+  Boundaries](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/region/collection.json):
   level 1, 3,929 rows, 231.0 MB GeoParquet in 152 row groups of 26. [agent
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/region/AGENTS.md)
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/region/AGENTS.md)
 - [county — County
-  Boundaries](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/collection.json):
+  Boundaries](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/collection.json):
   level 2, 38,937 rows, 649.4 MB GeoParquet in 406 row groups of 96. [agent
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/AGENTS.md)
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/AGENTS.md)
 - [localadmin — Local Administrative
-  Boundaries](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/localadmin/collection.json):
+  Boundaries](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin/collection.json):
   level 3, 21,502 rows, 142.6 MB GeoParquet in 90 row groups of 240. [agent
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/localadmin/AGENTS.md)
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin/AGENTS.md)
 - [locality — Locality
-  Boundaries](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/locality/collection.json):
+  Boundaries](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/locality/collection.json):
   level 4, 556,094 rows, 1.2 GB GeoParquet in 580 row groups of 960. [agent
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/locality/AGENTS.md)
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/locality/AGENTS.md)
 - [names — Multilingual Name Search
-  Index](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/collection.json):
-  5,604,413 rows (3,572,796 divisions + 2,031,617 alternative spellings), 407.7
+  Index](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/collection.json):
+  5,604,413 rows (3,572,796 divisions + 2,031,617 alternative spellings), 409.2
   MB, sorted by folded name, 876 row groups of 6,400. [agent
-  guide](https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/AGENTS.md)
+  guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/AGENTS.md)
 
 ## Data files
 
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/country/overture_country.parquet
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/region/overture_region.parquet
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county.parquet
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/localadmin/overture_localadmin.parquet
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/locality/overture_locality.parquet
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/country/overture_country_display.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/country/overture_country.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/region/overture_region.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin/overture_localadmin.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/locality/overture_locality.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/country/overture_country_display.parquet
   (simplified, buffered outward; same rows and row groups as the
   full-resolution file)
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/region/overture_region_display.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/region/overture_region_display.parquet
   (simplified, buffered outward; same rows and row groups as the
   full-resolution file)
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/overture_county_display.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/overture_county_display.parquet
   (simplified, buffered outward; same rows and row groups as the
   full-resolution file)
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/localadmin/overture_localadmin_display.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin/overture_localadmin_display.parquet
   (simplified, buffered outward; same rows and row groups as the
   full-resolution file)
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/locality/overture_locality_display.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/locality/overture_locality_display.parquet
   (simplified, buffered outward; same rows and row groups as the
   full-resolution file)
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/country/country.pmtiles
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/region/region.pmtiles
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/county/county.pmtiles
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/localadmin/localadmin.pmtiles
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/locality/locality.pmtiles
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/names.pmtiles
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet
-- https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/index.json
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/country/country.pmtiles
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/region/region.pmtiles
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/county/county.pmtiles
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/localadmin/localadmin.pmtiles
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/locality/locality.pmtiles
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/names.pmtiles
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet
+- https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/index.json
 
 ## Start a query
 
@@ -121,7 +121,7 @@ INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;
 
 -- Everything called Kyoto, in any language, best match first.
 SELECT name, name_lang, level, country, parent_name, population
-FROM 'https://data.source.coop/portolan-mirrors/cn-geocoder-overture/names/overture_division_names.parquet'
+FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/overture_division_names.parquet'
 WHERE name_norm LIKE 'kyoto%'
 ORDER BY level, population DESC NULLS LAST;
 ```
@@ -162,7 +162,7 @@ ORDER BY level, population DESC NULLS LAST;
   the CC-BY-4.0 counterpart, same column contract, no share-alike, no
   localities, no multilingual names.
 - [Source
-  repository](https://github.com/portolan-mirrors/cn-geocoder-overture): the
+  repository](https://github.com/portolan-mirrors/cn-gazetteer-overture): the
   pipeline, the per-collection provenance records, the index measurements, and
   the issue tracker.
 - [Portolan specification](https://github.com/portolan-sdi/portolan-spec): what

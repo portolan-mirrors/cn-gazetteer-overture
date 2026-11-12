@@ -21,6 +21,7 @@ from pathlib import Path
 import pyarrow.parquet as pq
 
 from ovcommon import (
+    AZURE_HTTPS_THEME,
     COLLECTIONS,
     COLLECTION_LEVEL,
     DOCS_ATTRIBUTION,
@@ -28,8 +29,10 @@ from ovcommon import (
     EXTRACTION_DATE,
     NAMES_PATH,
     NAMES_ROW_GROUP_ROWS,
+    PUBLISH,
     RELEASE,
     ROW_GROUP_ROWS,
+    S3_BUCKET,
     boundary_path,
     display_path,
     human,
@@ -37,14 +40,20 @@ from ovcommon import (
     pmtiles_path,
 )
 from build_pmtiles import MAX_ZOOM, NAMES_MAX_ZOOM
+from build_prominent import (
+    OUT as PROMINENT_PATH,
+    ROW_GROUP_ROWS as PROMINENT_ROW_GROUP_ROWS,
+)
+
+PROMINENT_NAME = PROMINENT_PATH.name
 
 REPO = Path(__file__).resolve().parents[1]
 CATALOG = REPO / "catalog"
-PUBLIC = "https://data.source.coop/portolan-mirrors/cn-geocoder-overture"
-HUMAN = "https://source.coop/portolan-mirrors/cn-geocoder-overture"
+PUBLIC = "https://data.source.coop/portolan-mirrors/cn-gazetteer-overture"
+HUMAN = "https://source.coop/portolan-mirrors/cn-gazetteer-overture"
 SIBLING = "https://source.coop/portolan-mirrors/geoboundaries-catalog"
 SIBLING_REPO = "https://github.com/portolan-mirrors/geoboundaries-catalog"
-REPO_URL = "https://github.com/portolan-mirrors/cn-geocoder-overture"
+REPO_URL = "https://github.com/portolan-mirrors/cn-gazetteer-overture"
 
 def experimental_banner(prefix: str = "") -> str:
     """The warning every page carries, with the manifest link relative to it."""
@@ -447,11 +456,13 @@ def names_readme(docs: dict) -> str:
     con.close()
 
     gpp = m["groups_per_prefix"]
+    prominent = stats(PUBLISH / "names" / PROMINENT_NAME)
     lines = [
         f"# {doc['title']}",
         "",
         experimental_banner(""),
-        "A search sidecar, not a boundary dataset. One row per Overture "
+        "The gazetteer itself -- a search sidecar, not a boundary dataset. "
+        "One row per Overture "
         "division, plus one row per distinct alternative spelling of that "
         "division's name, sorted by a folded form of the name.",
         "",
@@ -459,7 +470,24 @@ def names_readme(docs: dict) -> str:
         "typed name, in any of hundreds of languages, into a GERS id, an "
         "extent and a point. That is the lookup half of a browser geocoder, "
         "and the multilingual half is what this catalog has that its CC-BY "
-        f"counterpart, [geoboundaries-catalog]({SIBLING}), does not.",
+        f"counterpart, [geoboundaries-catalog]({SIBLING}), does not. It "
+        "resolves place names and administrative boundaries, **not street "
+        "addresses**.",
+        "",
+        "**There are two files here, and the small one is where to start.** "
+        f"The full index is {human(index['size'])}, which no browser loads, "
+        "so every keystroke against it is an HTTP round trip. "
+        f"`{PROMINENT_NAME}` is "
+        f"{prominent['size'] / (1 << 20):.1f} MiB -- the same schema, the "
+        "same sort, a strict subset of the same rows -- small enough to "
+        "fetch whole on focus and then answer keystrokes from memory. "
+        "Measured with hyparquet, a cold first lookup costs **300 KB over 1 "
+        "request** against the prominent index and **2.64 MB over 2** "
+        "against the full one. Read `prominent_index.criteria` in "
+        "[index.json](index.json) for exactly which rows it holds and what "
+        "it can miss; the full index is the fallback and every row of the "
+        "small file is also in it, with the same `feature_id` and the same "
+        "`geometry_ref`.",
         "",
         "| | |",
         "|---|---|",
@@ -473,7 +501,14 @@ def names_readme(docs: dict) -> str:
         f"groups of {NAMES_ROW_GROUP_ROWS:,} rows, zstd, page index |",
         f"| Bytes per row | {m['bytes_per_row']} |",
         f"| Row group | ~{human(m['mean_row_group_bytes'])} |",
-        f"| Footer + page index | {m['footer_bytes']:,} bytes |",
+        f"| Footer + page index | {m['footer_bytes']:,} bytes "
+        f"(`footer_bytes`); thrift footer alone "
+        f"{manifest['index']['footer_metadata_bytes']:,} "
+        "(`footer_metadata_bytes`) |",
+        f"| Prominent index | {human(prominent['size'])}, "
+        f"{prominent['rows']:,} rows, {prominent['row_groups']:,} row groups "
+        f"of {PROMINENT_ROW_GROUP_ROWS:,}, footer "
+        f"{manifest['prominent_index']['footer_metadata_bytes']:,} bytes |",
         "| Sorted by | `name_norm`, `level`, `country`, `feature_id`, "
         "byte-wise on UTF-8, declared in the footer |",
         f"| PMTiles | {human(tiles.stat().st_size)}, zoom 0-"
@@ -696,14 +731,21 @@ def catalog_readme(docs: dict) -> str:
     total += index["size"] + names_tiles.stat().st_size
 
     return "\n".join([
-        "# EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",
+        "# EXPERIMENTAL: Overture Divisions Cloud-Native Gazetteer (ODbL)",
         "",
         experimental_banner(""),
         "Overture Maps divisions, release "
-        f"`{RELEASE}`, republished as cloud-native GeoParquet and PMTiles for "
-        "a browser geocoder: five boundary levels from country down to "
-        "locality, each with a display-simplified companion, and a "
-        "multilingual name search index over all of them.",
+        f"`{RELEASE}`, republished as a **cloud-native gazetteer**: "
+        "GeoParquet and PMTiles laid out so a browser can search and draw "
+        "administrative places over HTTP range requests, with no server and "
+        "no API key. Five boundary levels from country down to locality, each "
+        "with a display-simplified companion, and a multilingual gazetteer "
+        "index over all of them.",
+        "",
+        "It is a **gazetteer, not a geocoder**: it resolves place names and "
+        "administrative boundaries, not street addresses. There is no house "
+        "number, no street centerline and no interpolation here. The geocoder "
+        "is the client that consumes this.",
         "",
         "This is a **mirror**. "
         "[Overture Maps Foundation](https://overturemaps.org/) produces the "
@@ -811,6 +853,76 @@ def catalog_readme(docs: dict) -> str:
         "- [names/README.md](names/README.md): the search index, and how to "
         "read it without downloading it.",
         "- [catalog.json](catalog.json): the STAC entry point.",
+        "",
+        "## The upstream data vs our optimized files - why both exist and "
+        "when to use which",
+        "",
+        "Every collection here links the **upstream Overture release** it was "
+        "built from, as `upstream-division-s3`, "
+        "`upstream-division-area-s3` and `upstream-divisions-azure` assets. "
+        "Nothing in this catalog asks you to take a mirror's word for its own "
+        "contents.",
+        "",
+        "**Use the upstream release when** you want the authoritative bytes, "
+        "the whole theme for analysis in DuckDB or Spark or GDAL, the columns "
+        "this catalog's projection drops, or a second opinion on anything "
+        "here. It is the product of record: Overture publishes it, versions "
+        "it immutably, and is who you credit.",
+        "",
+        f"    s3://{S3_BUCKET}/release/{RELEASE}/theme=divisions/"
+        "   (type=division, type=division_area)",
+        f"    {AZURE_HTTPS_THEME}/",
+        "",
+        "Both are public and anonymous, and the requester does not pay. "
+        "Measured 2026-11-12, the **S3 HTTPS endpoint sends CORS** "
+        "(`Access-Control-Allow-Origin: *`, with `Content-Range` and "
+        "`Accept-Ranges` exposed) and answers `Accept-Ranges: bytes`, so a "
+        "browser *can* range-read the upstream release directly. The **Azure "
+        "mirror sends no CORS headers at all** and cannot be read from a "
+        "browser cross-origin.",
+        "",
+        "So reachability is **not** the reason this catalog exists. Layout "
+        "is. Measured on `part-00000` of `type=division`, the upstream file a "
+        "name search would have to read:",
+        "",
+        "| | upstream release | this catalog |",
+        "|---|---|---|",
+        "| files to search by name | 1 file, 584 MB (plus 8 files, 4.6 GB, "
+        f"for the polygons) | one sorted index, {human(index['size'])}, or "
+        "the 8.6 MiB prominent index |",
+        "| sorted by name | no - `sorting_columns` not declared | yes, "
+        "`name_norm` byte-wise, declared in the footer |",
+        "| find one place by name | scan every part file | binary search over "
+        "row group statistics, one range request |",
+        "| row groups | 256 groups of ~18,400 rows, median 2.22 MB, up to "
+        f"3.85 MB | {m['row_groups']:,} groups of "
+        f"{NAMES_ROW_GROUP_ROWS:,} rows in the index; 8 to 960 rows in the "
+        "boundary files, sized by what one feature costs |",
+        "| columns | 50 leaf chunks of the full schema, nested structs | a "
+        "flat projection; 20 columns in the index |",
+        "| footer read | 1.47 MB, and **two** requests, because a "
+        "speculative 512 KiB tail falls short | exact `footer_bytes` and "
+        "`footer_metadata_bytes` in `names/index.json`, one request |",
+        "| one division's outline | a multi-megabyte row group of the full "
+        "schema | one row group of a display file, simplified and "
+        "outward-buffered |",
+        "| multilingual search | unnest a `names.common` map per row at query "
+        f"time | {manifest['alt_rows']:,} pre-expanded alternative-spelling "
+        "rows, in the sort |",
+        "| tiles | none | PMTiles per collection |",
+        "",
+        "None of that is a criticism of the upstream files: they are laid out "
+        "for bulk analytics, which is what most consumers want, and they are "
+        "very good at it. They are simply not laid out for a browser "
+        "answering a keystroke, and no amount of client cleverness fixes a "
+        "2.22 MB row group or an undeclared sort. That is the whole content "
+        "of this catalog: the same data, reprojected and relaid out, so each "
+        "of those rows in the right-hand column is one small range request.",
+        "",
+        "What this catalog changes about the data itself - every row and "
+        "column it drops, derives or adds - is in "
+        "[changes-from-upstream.md](changes-from-upstream.md). Read it before "
+        "you treat anything here as vanilla Overture.",
         "",
         LICENSE_BLOCK,
         "## Provenance",

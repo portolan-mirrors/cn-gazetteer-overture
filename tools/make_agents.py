@@ -26,6 +26,7 @@ import duckdb
 import pyarrow.parquet as pq
 
 from ovcommon import (
+    AZURE_HTTPS_THEME,
     CATALOG_VERSION,
     COLLECTIONS,
     COLLECTION_LEVEL,
@@ -36,6 +37,7 @@ from ovcommon import (
     NAMES_ROW_GROUP_ROWS,
     RELEASE,
     ROW_GROUP_ROWS,
+    S3_BUCKET,
     WORK,
     boundary_path,
     display_path,
@@ -44,10 +46,16 @@ from ovcommon import (
     pmtiles_path,
 )
 from build_pmtiles import MAX_ZOOM, NAMES_MAX_ZOOM
+from build_prominent import (
+    OUT as PROMINENT_PATH,
+    ROW_GROUP_ROWS as PROMINENT_ROW_GROUP_ROWS,
+)
+
+PROMINENT_NAME = PROMINENT_PATH.name
 
 REPO = Path(__file__).resolve().parents[1]
 CATALOG = REPO / "catalog"
-PUBLIC = "https://data.source.coop/portolan-mirrors/cn-geocoder-overture"
+PUBLIC = "https://data.source.coop/portolan-mirrors/cn-gazetteer-overture"
 SIBLING = "https://source.coop/portolan-mirrors/geoboundaries-catalog"
 
 TIER_NOTE = """Each factual claim is tagged with how it was established:
@@ -612,6 +620,7 @@ def names_agents(con) -> str:
     tiles = pmtiles_path("names")
     tables = {"T": NAMES_PATH, "B": boundary_path("county")}
     gpp = m["groups_per_prefix"]
+    pmd = pq.ParquetFile(PROMINENT_PATH).metadata
 
     lines = [
         f"# AGENTS.md — {doc['title']}",
@@ -627,10 +636,13 @@ def names_agents(con) -> str:
         "",
         "## Overview",
         "",
-        "**A search sidecar, not a boundary dataset.** One row per Overture "
+        "**The gazetteer: a search sidecar, not a boundary dataset.** One "
+        "row per Overture "
         "division plus one row per distinct alternative spelling of its name, "
         "built so a static client with no server can turn a typed name, in "
         "any of hundreds of languages, into a GERS id, a bbox and a point. "
+        "Place names and administrative boundaries only — **never street "
+        "addresses**. "
         f"Public root: `{PUBLIC}/catalog.json`",
         "",
         "```",
@@ -638,6 +650,10 @@ def names_agents(con) -> str:
             (f"names/{NAMES_PATH.name}",
              f"{human(NAMES_PATH.stat().st_size)}, {md.num_rows:,} rows, "
              f"{md.num_row_groups:,} row groups of {NAMES_ROW_GROUP_ROWS:,}"),
+            (f"names/{PROMINENT_NAME}",
+             f"{human(pmd.num_rows and PROMINENT_PATH.stat().st_size)}, "
+             f"{pmd.num_rows:,} rows, {pmd.num_row_groups:,} row groups of "
+             f"{PROMINENT_ROW_GROUP_ROWS:,} — the eager-load subset"),
             ("names/index.json",
              f"{(CATALOG / 'names' / 'index.json').stat().st_size:,} bytes, "
              "the manifest to fetch first"),
@@ -654,6 +670,43 @@ def names_agents(con) -> str:
         "where there is not. It is a marker, not a shape: do not compute "
         "area, length or containment from this file. The shape lives in the "
         "boundary collection at the row's `level`.",
+        "",
+        "## Two files: read the small one first",
+        "",
+        f"`{PROMINENT_NAME}` is the **prominent index**: "
+        f"{pmd.num_rows:,} of the full index's {md.num_rows:,} rows, "
+        f"{human(PROMINENT_PATH.stat().st_size)} against "
+        f"{human(NAMES_PATH.stat().st_size)}, in the same schema and the same "
+        "sort. It is a strict row subset — it copies rows rather than "
+        "recomputing them — so a hit found in it carries the same "
+        "`feature_id` and the same `geometry_ref` as the same row in the full "
+        "index and resolves to geometry identically. Neither file is "
+        "authoritative over the other. [derived]",
+        "",
+        "Measured with hyparquet, reading one row group cold:",
+        "",
+        "| | full index | prominent index |",
+        "|---|---|---|",
+        f"| size | {human(NAMES_PATH.stat().st_size)} | "
+        f"{human(PROMINENT_PATH.stat().st_size)} |",
+        f"| rows | {md.num_rows:,} | {pmd.num_rows:,} |",
+        "| footer, speculative 512 KiB tail | 2.15 MB in **2 requests** | "
+        "524 KB in 1 |",
+        "| footer, exact `footer_metadata_bytes` | 2.15 MB in 1 request | "
+        "172 KB in 1 |",
+        "| one row group | 487 KB | 128 KB |",
+        "| **first lookup, cold** | **2.64 MB** | **300 KB** |",
+        "| whole-file load | not viable | 8.6 MiB once, then 0 per keystroke |",
+        "",
+        "**What the prominent index holds**, from "
+        "`index.json` -> `prominent_index.criteria`: every primary row at "
+        "levels 0-3 (country, dependency, region, county, localadmin), every "
+        "alternative-name row at level 0, and every level-4 locality row at "
+        "`cartography.prominence` >= 50. **What it misses, and so when to "
+        "fall back to the full index:** any locality below that cut, and any "
+        "alternative-language name of a region, county, localadmin or "
+        "locality. A client may query both and dedupe by `feature_id`. "
+        "[derived]",
         "",
         "## Accessing the data",
         "",
@@ -683,7 +736,7 @@ def names_agents(con) -> str:
         f"{human(m['mean_row_group_bytes'])} **[derived: "
         "tools/measure_index.py]**. Full numbers, including compressed bytes "
         "per column, are in `docs/index-measurements.md` in the "
-        "[repository](https://github.com/portolan-mirrors/cn-geocoder-overture).",
+        "[repository](https://github.com/portolan-mirrors/cn-gazetteer-overture).",
         "",
         "A browser client reads it with "
         "[hyparquet](https://github.com/hyparam/hyparquet) plus "
@@ -814,11 +867,21 @@ def catalog_agents(con) -> str:
     manifest = json.loads((CATALOG / "names" / "index.json").read_text())
     tables = {"T": NAMES_PATH, "C": boundary_path("region")}
     lines = [
-        "# AGENTS.md — EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",
+        "# AGENTS.md — EXPERIMENTAL: Overture Divisions Cloud-Native "
+        "Gazetteer (ODbL)",
         "",
         "Guidance for AI agents and automated clients working with this "
         "catalog. Each collection has its own guide with the queries for that "
         "level; this one is the map.",
+        "",
+        "This catalog is a **cloud-native gazetteer**: Overture's "
+        "administrative divisions, laid out so a client can search them by "
+        "name and draw them, one place at a time, over HTTP range requests. "
+        "It is a gazetteer and **not a geocoder** — it resolves place names "
+        "and administrative boundaries, never street addresses. There is no "
+        "house number, no street centerline and no interpolation here, so a "
+        "query like \"150 Main St\" has no answer in this data. The geocoder "
+        "is the client that consumes the gazetteer.",
         "",
         RULE,
         "",
@@ -855,10 +918,33 @@ def catalog_agents(con) -> str:
         "",
         "## Start here",
         "",
-        "1. Fetch [names/index.json](names/index.json), about a kilobyte. It "
+        "1. Fetch [names/index.json](names/index.json), a few kilobytes. It "
         "carries the index's size and checksum, the `catalog_version` every "
         "data file's footer must agree with, the URL of every boundary and "
-        "display file, and the attribution to display.",
+        "display file, the attribution to display, and two things worth "
+        "reading before you fetch a single data byte:",
+        "    - **`footer_bytes` and `footer_metadata_bytes` on every file "
+        "entry.** Parquet metadata sits at the end of a file and a reader "
+        "must have it before it can read any row group, but nothing in the "
+        "format says how big it is — so hyparquet speculates a 512 KiB tail "
+        "and fetches again when it guesses short. On the full index, whose "
+        "footer is 2.1 MB, that speculation is a *guaranteed* second round "
+        "trip. Pass one of these as `initialFetchSize` instead: "
+        "`footer_bytes` is the whole trailing span, footer plus page index, "
+        "and gets you everything in one request; `footer_metadata_bytes` is "
+        "the thrift footer alone, which is all hyparquet ever reads, since "
+        "it has no sub-chunk read.",
+        "    - **`prominent_index`.** A second, 8.6 MiB names file in the "
+        "same collection, with the same schema and the same sort as the full "
+        "409 MB index. Fetch it whole and answer keystrokes from memory. "
+        "`prominent_index.criteria` states exactly which rows it holds — "
+        "every division down to localadmin, every alternative-language "
+        "spelling of every country, every locality at `prominence` >= 50 — "
+        "and `prominent_index.criteria.fallback` states what it can miss, "
+        "which is when to go to the full index. Every row in it is also in "
+        "the full index, with the same `feature_id` and the same "
+        "`geometry_ref`, so the two are interchangeable for resolution and a "
+        "client may query both and dedupe by `feature_id`.",
         "2. Resolve a name against "
         "[names](names/collection.json) with a `name_norm LIKE 'prefix%'` "
         "range read.",
@@ -896,6 +982,20 @@ def catalog_agents(con) -> str:
         "Overture publishes as a point. `has_boundary` says so per row.",
         "5. **An alternative-name row is not another place.** Dedupe search "
         "results by `feature_id`, or the same city appears once per language.",
+        "5a. **Rank with `class`, `prominence` and `alt_of`, not with "
+        "`area_km2`.** A short prefix returns thousands of candidates and is "
+        "dominated by alternative-language rows of countries and regions — "
+        "ranking verification found Baghdad buried under Tajik and Uzbek "
+        "spellings of Bahamas. `area_km2` makes it worse, because a country "
+        "always dwarfs a city. The columns that separate them are `class` "
+        "(`city`, `town`, `village`, `hamlet`; null above locality, and null "
+        "on 113,529 localities, so treat a null as unknown rather than as "
+        "unimportant), `prominence` (Overture's 1-100 cartographic ranking, "
+        "on every locality), `population` (sparse — 17.7% of localities, "
+        "79.9% of countries — so null means unknown, never zero), and "
+        "`alt_of`, which is non-null exactly on the alternative-language "
+        "rows and so is how you penalize one against a match on the "
+        "published name.",
         "6. **`country` is derived alpha-3; `country_iso2` is Overture's "
         "alpha-2.** Some rows carry a synthetic code with no alpha-3 "
         "equivalent, and there the two columns are equal and two letters "
@@ -909,6 +1009,38 @@ def catalog_agents(con) -> str:
         "be ODbL, and anything shown has to carry the attribution. The "
         f"[CC-BY counterpart]({SIBLING}) is the one without that obligation.",
         "",
+        "## The upstream data vs our optimized files",
+        "",
+        "Every collection links the upstream release it was built from — "
+        "`upstream-division-s3`, `upstream-division-area-s3` and "
+        "`upstream-divisions-azure`. Use them, not this catalog, when you "
+        "want the authoritative bytes, the whole theme for analysis, or a "
+        "column this catalog's projection dropped. [derived]",
+        "",
+        f"    s3://{S3_BUCKET}/release/{RELEASE}/theme=divisions/",
+        f"    {AZURE_HTTPS_THEME}/",
+        "",
+        "Both are public and anonymous. Measured 2026-11-12: the S3 HTTPS "
+        "endpoint sends `Access-Control-Allow-Origin: *` and answers "
+        "`Accept-Ranges: bytes`, so a browser can range-read it directly; "
+        "the Azure mirror sends no CORS headers and cannot be read "
+        "cross-origin. **So reachability is not why this catalog exists — "
+        "layout is.** Measured on `part-00000` of `type=division`, 584 MB: "
+        "4,700,999 rows in 256 row groups of about 18,400 rows, median "
+        "2.22 MB and up to 3.85 MB compressed per group, 50 leaf column "
+        "chunks of the nested schema, **no declared sort**, and a 1.47 MB "
+        "footer that takes two requests to read. Finding one place by name "
+        "in it means scanning every part file; pulling one division's "
+        "geometry means fetching a multi-megabyte row group. The files here "
+        "are the same data sorted by name, projected flat and cut into row "
+        "groups sized by what one feature costs, so each of those is one "
+        "small range request. [derived]",
+        "",
+        "That is the whole trade. Nothing here is more correct than the "
+        "release — it is the same coordinates — and nothing here is better "
+        "for bulk work. Use upstream for analysis and provenance; use this "
+        "for interactive lookup.",
+        "",
         "## Example queries",
         "",
     ]
@@ -920,7 +1052,7 @@ def catalog_agents(con) -> str:
         "- [changes-from-upstream.md](changes-from-upstream.md) — every row "
         "and column this catalog drops, derives or adds, and how to read "
         "vanilla Overture instead.",
-        "- [names/AGENTS.md](names/AGENTS.md) — the search index, the "
+        "- [names/AGENTS.md](names/AGENTS.md) — the gazetteer index, the "
         "range-request path and the `geometry_ref` fast path.",
         f"- [Overture divisions guide]({DOCS_DIVISIONS}) — what a subtype "
         "means, and Overture's own coverage statement.",

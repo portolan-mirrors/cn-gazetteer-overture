@@ -14,7 +14,7 @@
 //   mkdir -p ../cn-geocoder-overture-staging/work/node
 //   cd ../cn-geocoder-overture-staging/work/node
 //   npm install hyparquet hyparquet-compressors
-//   NODE_PATH=$PWD/node_modules node ../../../cn-geocoder-overture/tools/verify_index_hyparquet.mjs
+//   NODE_PATH=$PWD/node_modules node ../../../cn-gazetteer-overture/tools/verify_index_hyparquet.mjs
 
 import { createRequire } from 'node:module'
 import { open, stat } from 'node:fs/promises'

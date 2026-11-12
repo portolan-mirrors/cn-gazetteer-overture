@@ -128,7 +128,8 @@ with one value in every row is noise in `table:columns`.
 | `country` | Overture `country` (alpha-2) | Mapped to ISO 3166-1 alpha-3 through the official ISO 3166-1 table packaged with pycountry, so this catalog and the CC-BY geoBoundaries mirror can be filtered with one code system. Overture's alpha-2 is kept unchanged as `country_iso2`. A synthetic Overture code with no alpha-3 equivalent is carried through unchanged. |
 | `local_type` | Overture `local_type` (a map) | Flattened to the `local` entry, or the first entry where there is none. |
 | `parent_name`, `parent_subtype` | `parent_division_id` | Self-join over the whole `type=division` release, so a parent in an excluded subtype still resolves. |
-| `prominence` | `cartography.prominence` | Unwrapped from the struct. |
+| `prominence` | `cartography.prominence` | Unwrapped from the struct. Overture populates it on all 3,508,156 localities and on nothing else. |
+| `class` | Overture `class` | Carried through unchanged onto every names-index row, including alternative-name rows. It is null above locality — Overture populates it on 3,394,627 of 3,508,156 localities and on none of the 64,640 divisions above them. Added 2026-11-12 so a client can rank a city above a country that happens to share a prefix; see "A `class` column in the gazetteer index" below. |
 | `name_langs` | `names.common` | `cardinality` of the map. |
 | `country_units` | this file | Window count of rows sharing `country`. |
 | `area_km2`, `perimeter_km` | `geometry` | `ST_Area_Spheroid` and `ST_Perimeter_Spheroid` on the WGS 84 ellipsoid, coordinates flipped to latitude-first as those functions require. |
@@ -147,6 +148,65 @@ tolerance. The result always contains the true boundary, so a spatial filter
 drawn against it over-selects rather than under-selects. Neighbouring divisions
 therefore overlap along their shared edge. **Draw and filter with these;
 measure and clip with the full-resolution files.**
+
+### A `class` column in the gazetteer index
+
+Overture carries `class` on its division rows; nothing in Overture carries it
+in a form a name search can rank on. The index now does, on every row
+including the alternative-name rows, because **without it a short prefix
+returns the wrong answers**. Ranking verification against this catalog found
+that a prefix like `bag` is dominated by alternative-language rows of countries
+and regions — Tajik and Uzbek transliterations of "Bahamas" and the like — which
+bury Baghdad, since a country outranks a city on every signal the index
+previously offered. `area_km2` makes it worse rather than better: a country
+always dwarfs a city.
+
+`class` is the only column that separates them. Measured on this release its
+distribution is hamlet 1,715,416, village 1,561,816, town 103,175 and city
+14,220, so `class IN ('city', 'town')` is 117,395 places out of 3.5 million.
+
+**It is a ranking signal, not a filter.** 113,529 localities have no class and
+some of those are real cities, so a client that filters on `class` loses them.
+Treat null as unknown. The same holds for `population`, which was already
+carried: it is populated on 17.7% of localities and 79.9% of countries, so a
+client that coalesces null to zero sorts five localities in six last.
+
+To get vanilla behaviour, ignore the column; nothing else in the index depends
+on it.
+
+### The prominent gazetteer index
+
+Not in Overture, and not a transformation of the data — a **row subset of this
+catalog's own index**, in the same schema and the same sort.
+`overture_division_names_prominent.parquet` is 8.6 MiB against the full index's
+409 MB, holding 108,919 of its 5,604,413 rows: every primary row at levels 0-3
+(country, dependency, region, county, localadmin), every alternative-name row
+at level 0, and every level-4 locality row at `cartography.prominence` 50 or
+above.
+
+It exists because a 409 MB index means every keystroke is an HTTP round trip.
+This one is small enough to fetch whole on focus and answer keystrokes from
+memory, while the full index stays available by range request for anything
+deeper. Every row in it is byte-for-byte a row of the full index — same
+`feature_id`, same `geometry_ref`, same `name_norm` — so a hit found in either
+resolves its geometry identically, and neither is authoritative over the other.
+
+**What it can miss, and therefore when to fall back:** any locality below the
+prominence cut, and any alternative-language name of a region, county,
+localadmin or locality. `catalog/names/index.json` publishes the criteria and
+the fallback rule verbatim under `prominent_index.criteria`.
+
+The criteria are a budget decision and the measurement is in
+`tools/build_prominent.py`: carrying levels 0-2 entirely with their
+alternative names is 29.9 MB however hard level 4 is cut, because the
+alternative-name rows are the rows — 257,872 of them at levels 0-2 against
+43,138 divisions — and `feature_id` plus `alt_of` is 64 bytes of GERS
+identifier on each. `class` was considered as the level-4 cut instead of
+`prominence` and rejected (null on 113,393 localities, and not a column the
+index carried at the time); `area_km2` was rejected too, since 2,952,062
+localities have no polygon and so no area.
+
+To get vanilla behaviour, ignore this file and read the full index.
 
 ### Multilingual name search index
 
