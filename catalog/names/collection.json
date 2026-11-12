@@ -116,7 +116,7 @@
     {
       "name": "name_lang",
       "type": "string",
-      "description": "Attested. The language code Overture keys this spelling under in `names.common`. Null on a primary row, where the language of `names.primary` is unstated. Where several language codes agree on one spelling the index keeps a single row and this column holds the first code in alphabetical order, with `name_lang_count` saying how many agreed."
+      "description": "Attested, and **not always a language code**. It is the key Overture uses for this spelling in `names.common`, carried through unchanged. 1,012 distinct keys appear in this index and 965 of them are BCP-47 shaped; the other 47, covering 48,137 rows, are OpenStreetMap annotation keys rather than languages. `genitive` alone accounts for 46,479 of them, and `suffix`, `short`, `note`, `abbr` and `full` make up most of the rest. Those rows are worth indexing, because a user may well type an inflected or abbreviated form, but an interface that prints this column as a language label will print `genitive`. Null on a primary row, where the language of `names.primary` is unstated. Where several keys agree on one spelling the index keeps a single row holding the first key in alphabetical order, with `name_lang_count` saying how many agreed."
     },
     {
       "name": "name_lang_count",

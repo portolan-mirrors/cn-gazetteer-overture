@@ -448,6 +448,9 @@ NAMES_TRAPS = [
     "**Prefix search is cheap; substring search is not.** The sort makes a "
     "leading prefix a range read. A fragment in the middle of a name has to "
     "scan the whole `name_norm` column.",
+    "**`name_lang` is not reliably BCP-47.** 48,137 alternative rows are "
+    "keyed by an OpenStreetMap annotation rather than a language, 46,479 of "
+    "them `genitive`. Index them; do not print the key as a language label.",
     "**`level` is this catalog's mapping, not Overture's `admin_level`.** "
     "Overture puts a dependency at `admin_level` 1 and leaves it null below "
     "county.",
@@ -705,9 +708,10 @@ def names_agents(con) -> str:
         "in a boundary collection |",
         "| `alt_of` | null on a primary row; the row's own `feature_id` on an "
         "alternative-spelling row |",
-        "| `name_lang` | the language code Overture keys this spelling under. "
-        "Null on a primary row, because Overture does not state the language "
-        "of `names.primary` |",
+        "| `name_lang` | Overture's `names.common` key for this spelling, "
+        "**usually but not always a language code**: 47 of the 1,012 distinct "
+        "keys are OpenStreetMap annotations such as `genitive`. Null on a "
+        "primary row |",
         "| `level` | 0 country and dependency, 1 region, 2 county, 3 "
         "localadmin, 4 locality. **Which boundary collection to join** |",
         "| `has_boundary` | whether any polygon exists for this division in "

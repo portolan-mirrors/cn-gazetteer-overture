@@ -172,7 +172,18 @@ known_issues: >
   the language of names.primary. It is usually but not always the local
   language.
 
-  **name_lang on an alternative row is one of possibly several languages that
+  **name_lang is not always a language code.** It is Overture's own
+  names.common key, carried through unchanged. 1,012 distinct keys appear in
+  this index; 965 are BCP-47 shaped and the other 47, covering 48,137 rows,
+  are OpenStreetMap annotation keys. genitive alone accounts for 46,479 of
+  them, and suffix, short, note, abbr and full make up most of the rest. The
+  rows are kept, because a user may type an inflected or abbreviated form and
+  the spelling is a real one, but an interface that prints name_lang as a
+  language label will print "genitive" at some point. The index-file contract
+  describes this column as BCP-47; it is BCP-47 for 99.1% of the alternative
+  rows and the source for the rest.
+
+  **name_lang on an alternative row is one of possibly several keys that
   agree on that spelling.** The code kept is the first in alphabetical order,
   which is arbitrary but stable across rebuilds; name_lang_count says how many
   there were. A client that needs the full set has to read names.common from
