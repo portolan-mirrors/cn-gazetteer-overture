@@ -815,6 +815,155 @@ def catalog_readme(docs: dict) -> str:
     ])
 
 
+def llms_txt(docs: dict) -> str:
+    manifest = index_manifest()
+    m = measurements()
+    index = stats(NAMES_PATH)
+    lines = [
+        "# EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",
+        "",
+        "> Overture Maps divisions, release "
+        f"{RELEASE}, as cloud-native GeoParquet and PMTiles for a browser "
+        "geocoder. Five boundary levels from country to locality, each with a "
+        "display-simplified companion, plus a multilingual name search index "
+        f"of {index['rows']:,} rows over {manifest['primary_rows']:,} "
+        "divisions. Static files on object storage, no API, no credentials. "
+        "Produced by Overture Maps Foundation; this catalog republishes, it "
+        "does not produce.",
+        "",
+        f"Public root: {PUBLIC}/catalog.json",
+        "",
+        "EXPERIMENTAL: the schema may change without notice and the hosting "
+        "repository is unlisted. Pin the catalog_version from "
+        f"{PUBLIC}/names/index.json if you depend on it.",
+        "",
+        "This is a Portolan catalog, which is STAC 1.1.0 plus the Portolan "
+        "profile. Every file is readable in place over HTTPS range requests. "
+        "Six collections, each with a collection.json, a README.md for "
+        "humans, an AGENTS.md for machine clients, GeoParquet, PMTiles and "
+        "four MapLibre styles.",
+        "",
+        "License: ODbL-1.0, SHARE-ALIKE. A database derived from this one has "
+        "to be released under ODbL, and anything shown has to display "
+        "'© OpenStreetMap contributors. Available under the Open Database "
+        "License.' The CC-BY-4.0 alternative, with no share-alike, no "
+        f"locality level and no multilingual names, is {SIBLING} .",
+        "",
+        "This is NOT a byte-for-byte mirror. It keeps only the land polygon "
+        "of each division, excludes the neighborhood, microhood and macrohood "
+        "subtypes, derives an ISO 3166-1 alpha-3 country code, and adds "
+        "display-simplified geometry, a search index and vector tiles. Every "
+        f"deviation is in {PUBLIC}/changes-from-upstream.md .",
+        "",
+        "## Read these first",
+        "",
+        f"- [Catalog agent guide]({PUBLIC}/AGENTS.md): the collections, the "
+        "join keys, and the nine traps that produce wrong answers.",
+        f"- [Catalog README]({PUBLIC}/README.md): what is here, which of the "
+        "two catalogs to use, the license, and how a geocoder widget consumes "
+        "it end to end.",
+        f"- [Search index guide]({PUBLIC}/names/AGENTS.md): the "
+        "range-request path, multilingual lookup, and the join back to "
+        "geometry.",
+        f"- [Index manifest]({PUBLIC}/names/index.json): fetch this before "
+        "the index itself.",
+        f"- [Changes from vanilla Overture]({PUBLIC}/changes-from-upstream.md).",
+        f"- [Root catalog.json]({PUBLIC}/catalog.json): the STAC entry point.",
+        "",
+        "## Collections",
+        "",
+    ]
+    for collection in COLLECTIONS:
+        full = stats(boundary_path(collection))
+        doc = docs[collection]
+        lines.append(
+            f"- [{collection} — {doc['title'].split(' - ', 1)[-1]}]"
+            f"({PUBLIC}/{collection}/collection.json): level "
+            f"{COLLECTION_LEVEL[collection]}, {full['rows']:,} rows, "
+            f"{human(full['size'])} GeoParquet in {full['row_groups']:,} row "
+            f"groups of {ROW_GROUP_ROWS[collection]:,}. "
+            f"[agent guide]({PUBLIC}/{collection}/AGENTS.md)"
+        )
+    lines += [
+        f"- [names — Multilingual Name Search Index]"
+        f"({PUBLIC}/names/collection.json): {index['rows']:,} rows "
+        f"({manifest['primary_rows']:,} divisions + "
+        f"{manifest['alt_rows']:,} alternative spellings), "
+        f"{human(index['size'])}, sorted by folded name, "
+        f"{index['row_groups']:,} row groups of {NAMES_ROW_GROUP_ROWS:,}. "
+        f"[agent guide]({PUBLIC}/names/AGENTS.md)",
+        "",
+        "## Data files",
+        "",
+    ]
+    for collection in COLLECTIONS:
+        lines.append(f"- {PUBLIC}/{collection}/{boundary_path(collection).name}")
+    for collection in COLLECTIONS:
+        lines.append(
+            f"- {PUBLIC}/{collection}/{display_path(collection).name} "
+            "(simplified, buffered outward; same rows and row groups as the "
+            "full-resolution file)"
+        )
+    for collection in list(COLLECTIONS) + ["names"]:
+        lines.append(f"- {PUBLIC}/{collection}/{pmtiles_path(collection).name}")
+    lines += [
+        f"- {PUBLIC}/names/{NAMES_PATH.name}",
+        f"- {PUBLIC}/names/index.json",
+        "",
+        "## Start a query",
+        "",
+        "```sql",
+        "INSTALL spatial; LOAD spatial; INSTALL httpfs; LOAD httpfs;",
+        "",
+        "-- Everything called Kyoto, in any language, best match first.",
+        "SELECT name, name_lang, level, country, parent_name, population",
+        f"FROM '{PUBLIC}/names/{NAMES_PATH.name}'",
+        "WHERE name_norm LIKE 'kyoto%'",
+        "ORDER BY level, population DESC NULLS LAST;",
+        "```",
+        "",
+        "## The things that produce wrong answers",
+        "",
+        "1. Join on `division_id`, never on `id`. Both are GERS identifiers; "
+        "`id` belongs to the polygon and a join on it returns nothing.",
+        "2. `level` is this catalog's 0-to-4 mapping, not Overture's "
+        "`admin_level`.",
+        "3. The five boundary levels do not tile the globe and do not fill "
+        "gaps from a coarser level. The names index is the only complete view.",
+        f"4. {manifest['primary_rows'] - 620734:,} divisions have no polygon "
+        "anywhere here, almost all localities Overture publishes as a point. "
+        "`has_boundary` says so per row.",
+        "5. An alternative-name row shares its division's `feature_id`. "
+        "Dedupe results on it or the same city appears once per language.",
+        "6. The geometry is the land outline; Overture's maritime polygon is "
+        "not carried.",
+        "7. The `*_display.parquet` files are buffered OUTWARD on purpose, so "
+        "neighbours overlap. Draw and filter with them; measure and clip with "
+        "the full-resolution files.",
+        "8. localadmin exists for 19 countries only. An empty result there is "
+        "usually missing coverage, not a missing place.",
+        "",
+        "## Optional",
+        "",
+        f"- [Overture Maps divisions guide]({DOCS_DIVISIONS}): what each "
+        "subtype means and Overture's own coverage statement.",
+        f"- [Overture attribution and licensing]({DOCS_ATTRIBUTION}): the "
+        "exact attribution this catalog's license requires.",
+        "- [Overture release index](https://docs.overturemaps.org/release/latest/): "
+        "the authoritative source, including the themes this catalog does not "
+        "mirror.",
+        f"- [geoboundaries-catalog]({SIBLING}): the CC-BY-4.0 counterpart, "
+        "same column contract, no share-alike, no localities, no "
+        "multilingual names.",
+        f"- [Source repository]({REPO_URL}): the pipeline, the per-collection "
+        "provenance records, the index measurements, and the issue tracker.",
+        "- [Portolan specification](https://github.com/portolan-sdi/portolan-spec): "
+        "what this catalog conforms to.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def main() -> int:
     docs = {c: collection_doc(c) for c in list(COLLECTIONS) + ["names"]}
     cont = containment()
@@ -828,6 +977,9 @@ def main() -> int:
     written.append(path)
     path = CATALOG / "README.md"
     path.write_text(catalog_readme(docs))
+    written.append(path)
+    path = CATALOG / "llms.txt"
+    path.write_text(llms_txt(docs))
     written.append(path)
     for p in written:
         print(f"  {p.relative_to(REPO)}: {p.stat().st_size:,} bytes")

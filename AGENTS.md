@@ -1,37 +1,59 @@
-<!-- ops-sync:begin — synced from portolan-sdi/portolan-ops. Edit there, not here. -->
-# Portolan agent norms
-
-All agents MUST read this document before starting work, with no exceptions, ever. (Claude Code does not read `AGENTS.md` but imports this file via a one-line `CLAUDE.md`.) Most of this content is synced downstream from `portolan-ops`. Put repo-specific instructions in `AGENTS.md`, never in `CLAUDE.md`, which the sync overwrites.
-
-## Ground rules
-
-Agents MUST read the complete contents of [norms](https://github.com/portolan-sdi/portolan-ops/blob/main/norms) and [policies](https://github.com/portolan-sdi/portolan-ops/blob/main/policies/) before starting work, with no exceptions, ever.
-
-The [portolan-spec](https://github.com/portolan-sdi/portolan-spec) repo is the absolute ground truth for the Portolan spec. All other tools are downstream of it.
-
-Before documenting any command, flag, or API, verify that it exists.
-
-Use conventional commits always.
-
-All tickets and PRs MUST follow the [templates](https://github.com/portolan-sdi/portolan-ops/blob/main/templates/).
-
-GitHub applies issue forms only in the web UI. With `gh issue create`, write each form field as a `### <field label>` heading, in the form's order. Include `### Priority` with one of `P0` to `P3` from the [priority rubric](https://github.com/portolan-sdi/portolan-ops/blob/main/norms/repos.md#priority). Pass the form's type label with `--label`, and pass the body with `--body-file`. The writing hook denies a body that skips its form, and issue governance flags one.
-
-## Org-wide facts
-
-The canonical homepage is <https://www.portolan-sdi.org/>. Canonical URLs live in [copy/urls.md](https://github.com/portolan-sdi/portolan-ops/blob/main/copy/urls.md). Do not hardcode variants.
-
-Community discussion happens in the [Portolan Google Group](https://groups.google.com/g/portolan) and the [Portolan channel](https://cloudnativegeo.slack.com/archives/C0A1JBH9529) in Cloud-Native Geo Slack. Planning happens in [org-level GitHub projects](https://github.com/orgs/portolan-sdi/projects/1).
-
-Files between `ops-sync` markers are synced from [portolan-ops](https://github.com/portolan-sdi/portolan-ops). They are overwritten on every sync run. To change one, edit it in portolan-ops.
-
-One canonical home per fact. If a value like a color, URL, or policy line exists in portolan-ops, link to it rather than copying it.
-<!-- ops-sync:end -->
-
 ## This Repository
 
-A template for a git-backed Portolan catalog. Repositories created from it
-inherit everything here, so a mistake in this file propagates.
+A git-backed Portolan catalog that mirrors the Overture Maps **divisions**
+theme for a browser geocoder. It is **experimental**, and the Source
+Cooperative repository that serves it is unlisted.
+
+Read `README.md` for the pipeline and `catalog/README.md` for what is
+published. Read `catalog/changes-from-upstream.md` before you claim anything
+about what this catalog does or does not carry.
+
+### It is the ODbL counterpart, not the default
+
+`portolan-mirrors/geoboundaries-catalog` is the default catalog, CC-BY-4.0 and
+attribution-only. This one exists because Overture reaches further down the
+hierarchy and carries names in hundreds of languages, and the price is ODbL
+share-alike. Both publish the same column contract so a consumer can switch
+with a URL.
+
+**Never soften the share-alike statement.** A reader deciding between the two
+catalogs is making a licensing decision, and the whole reason this repository
+exists is that the decision is theirs rather than ours. The obligation belongs
+in the repository README, the catalog README, every collection description,
+every collection README and the `share_alike` flag in
+`catalog/names/index.json`.
+
+### Every number is measured, never typed
+
+`tools/make_collections.py`, `tools/make_readmes.py`, `tools/make_agents.py`,
+`tools/make_breaks.py` and `tools/measure_index.py` read the built files and
+interpolate what they find. A row count, a file size, a class break, a
+containment ratio or a query result that appears in `catalog/` got there from
+a query. If you need to change a number, change what produced it.
+
+`catalog/**/README.md` and `catalog/**/AGENTS.md` are **generated output**. A
+hand edit is lost on the next run. Edit the prose blocks in the generator, or
+the provenance in `catalog/*/.portolan/metadata.yaml`, and regenerate.
+
+### The row order of a boundary file is a contract
+
+`catalog/names/` publishes a `geometry_ref` naming a row group and a row in a
+boundary file, and each display file holds the same rows at the same offsets.
+So the Hilbert `ORDER BY` in `tools/build_boundaries.py` carries a
+`division_id` tiebreaker and the write forces `preserve_insertion_order`.
+Both are load-bearing: without the tiebreaker a rebuild reordered 4,724
+locality rows and every display file silently went stale.
+
+Rebuilding a boundary file means rebuilding its display file. `build_display.py`
+asserts the alignment and refuses to publish a file that fails it.
+
+### The display files are supersets on purpose
+
+Simplified, then buffered **outward** by the same per-feature tolerance, so
+the shape always contains the true boundary. Never describe one as an
+approximation of the boundary, and never compute an area from one. The
+guarantee is verified per feature on every build and the worst cases are
+published.
 
 ### The publish boundary
 
@@ -44,9 +66,17 @@ exclusions.
 
 ### Data never enters git
 
-Never commit a GeoParquet, COG, PMTiles, Zarr, or COPC file. If a gate needs
-bytes to check, generate them in CI. Git keeps every version of a binary
-forever and deleting it later reclaims nothing.
+Never commit a GeoParquet, COG, PMTiles, Zarr, or COPC file. The staging tree
+is `../cn-geocoder-overture-staging`, outside this repository. Git keeps every
+version of a binary forever and deleting it later reclaims nothing.
+
+### Do not re-download the release to answer a question
+
+`tools/stage_source.py` is the only step that touches the network, and it
+pulls 4.6 GB. Everything else reads the local staging tree. If you need a fact
+about the Overture release, query the staged files; if you need one the
+staging projection dropped, add it to the projection and say so in
+`catalog/changes-from-upstream.md`.
 
 ### The conformance allow-list
 
@@ -57,18 +87,19 @@ fires, why it is accepted, and the issue tracking its removal.
 ### Published agent guides
 
 Every claim in a `catalog/**/AGENTS.md` is either quoted from a source or
-measured from the data. An invented join key or column name produces a
+measured from the data, and every query in one was run against the built file
+by `tools/make_agents.py`. An invented join key or column name produces a
 confident wrong answer that nothing downstream catches.
+
+The three tiers are not decoration. **Attested** means Overture's own schema
+or attribution page states it, and the evidence is carried in
+`catalog/_assets/overture/`. **Derived** means a query in `tools/` computed
+it. Anything else does not ship.
 
 ### The links back to this repository
 
-`catalog/catalog.json` ships a `vcs` link and an `issues` link. Both hrefs are
-setup placeholders, so `tests/test_setup.py` catches a half-edited repository.
-The Portolan spec recommends these two links for a git-backed catalog. See
-[git-backed catalogs](https://github.com/portolan-sdi/portolan-spec/blob/main/specs/best-practices/git-backed-catalogs.md),
-which merged in August 2026.
-
-Keep both hrefs absolute. The repository sits outside the published catalog,
-so a relative href resolves against the public base URL. Each placeholder
-holds a `://`, because `tests/test_links.py` treats an href without one as a
-path and looks for it on disk.
+`catalog/catalog.json` ships absolute `vcs` and `issues` links. The repository
+sits outside the published catalog, so a relative href would resolve against
+the public base URL. The Portolan spec recommends both links for a git-backed
+catalog. See
+[git-backed catalogs](https://github.com/portolan-sdi/portolan-spec/blob/main/specs/best-practices/git-backed-catalogs.md).

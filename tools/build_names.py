@@ -635,10 +635,18 @@ def main(argv: list[str]) -> int:
     distinct = [
         r[0] for r in con.execute("SELECT DISTINCT name FROM rows_raw").fetchall()
     ]
-    norms = [(n, normalize_name(n)) for n in distinct]
-    con.execute("CREATE OR REPLACE TABLE norms (name VARCHAR, name_norm VARCHAR)")
-    con.executemany("INSERT INTO norms VALUES (?, ?)", norms)
-    unfoldable = sum(1 for _, v in norms if v is None)
+    folded = [normalize_name(n) for n in distinct]
+    # Handed over as an Arrow table rather than through executemany: there are
+    # millions of distinct strings, and a parameterized insert of those costs
+    # minutes where a zero-copy register costs nothing.
+    norms_table = pa.table({
+        "name": pa.array(distinct, pa.string()),
+        "name_norm": pa.array(folded, pa.string()),
+    })
+    con.register("norms_arrow", norms_table)
+    con.execute("CREATE OR REPLACE TABLE norms AS SELECT * FROM norms_arrow")
+    con.unregister("norms_arrow")
+    unfoldable = sum(1 for v in folded if v is None)
     print(
         f"  normalized {len(distinct):,} distinct name strings, "
         f"{unfoldable:,} fold to nothing and are dropped"
