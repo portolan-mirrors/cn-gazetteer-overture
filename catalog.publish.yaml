@@ -32,7 +32,7 @@ endpoint_url: https://data.source.coop
 # The named AWS profile the publisher uses. Optional -- CI leaves it unused,
 # because configure-aws-credentials puts the assumed role in the environment
 # and publish.py prefers that whenever AWS_ACCESS_KEY_ID is set.
-profile: source-coop
+profile: source-coop-svc
 
 # The directory that IS the published catalog, synced 1:1 to write_prefix.
 # Nothing outside it is ever uploaded.
