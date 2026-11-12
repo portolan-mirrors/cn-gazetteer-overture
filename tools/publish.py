@@ -225,7 +225,9 @@ def remote_index(
 ) -> dict[str, tuple[int, str]]:
     """Size and ETag for every object under the prefix, or {} when unreadable."""
     try:
-        client = aws_session(config).client("s3")
+        client = aws_session(config).client(
+            "s3", endpoint_url=config.get("endpoint_url") or None
+        )
         index = {}
         paginator = client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
@@ -241,7 +243,9 @@ def remote_index(
         return {}
 
 
-def upload_all(session, bucket: str, uploads: list[Upload]) -> list[str]:
+def upload_all(
+    session, bucket: str, uploads: list[Upload], endpoint_url: str | None = None
+) -> list[str]:
     """Upload every object on a bounded pool. Returns the keys that failed.
 
     Every upload is attempted. One failure does not cancel the rest, so the
@@ -259,7 +263,9 @@ def upload_all(session, bucket: str, uploads: list[Upload]) -> list[str]:
         if existing is not None:
             return existing
         with new_client:
-            thread_state.client = session.client("s3")
+            thread_state.client = session.client(
+                "s3", endpoint_url=endpoint_url
+            )
         return thread_state.client
 
     def put(upload: Upload) -> None:
@@ -351,7 +357,9 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001 - stop before any upload
         sys.exit(f"cannot build an AWS session: {exc}")
 
-    failed = upload_all(session, bucket, changed)
+    failed = upload_all(
+        session, bucket, changed, config.get("endpoint_url") or None
+    )
     if failed:
         print(f"\n{len(failed)} of {len(changed)} file(s) failed:",
               file=sys.stderr)

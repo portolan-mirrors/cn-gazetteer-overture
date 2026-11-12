@@ -177,7 +177,7 @@ class FakeSession:
         self.clients = 0
         self.fail_key = fail_key
 
-    def client(self, name):
+    def client(self, name, endpoint_url=None):
         self.clients += 1
         return FakeClient(self.calls, self.fail_key)
 
