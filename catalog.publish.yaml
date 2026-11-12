@@ -23,10 +23,11 @@ public_base: https://data.source.coop/portolan-mirrors/cn-gazetteer-overture
 
 region: us-west-2
 
-# No endpoint_url: write_prefix names the bucket in AWS S3 directly, so the
-# default endpoint is the correct one. Pointing this at data.source.coop while
-# write_prefix names the real bucket would send every request to the gateway
-# under a bucket name that does not exist there.
+# The S3-compatible endpoint that serves write_prefix's bucket. Required in
+# gateway mode (the organization is the bucket there); remove it, and point
+# write_prefix at the real bucket, when publishing through an approved IAM
+# role instead.
+endpoint_url: https://data.source.coop
 
 # The named AWS profile the publisher uses. Optional -- CI leaves it unused,
 # because configure-aws-credentials puts the assumed role in the environment
