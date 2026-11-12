@@ -35,7 +35,6 @@ import argparse
 import shutil
 import sys
 import time
-from pathlib import Path
 
 from ovcommon import (
     COLLECTIONS,

@@ -55,10 +55,8 @@ import argparse
 import json
 import sys
 import time
-import unicodedata
 
 import pyarrow as pa
-import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from ovcommon import (

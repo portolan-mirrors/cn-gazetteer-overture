@@ -30,7 +30,6 @@ from ovcommon import (
     NAMES_ROW_GROUP_ROWS,
     RELEASE,
     ROW_GROUP_ROWS,
-    SIMPLIFY_TOLERANCE,
     boundary_path,
     display_path,
     human,
@@ -228,7 +227,6 @@ def boundary_readme(collection: str, docs: dict, cont: dict) -> str:
     tiles = pmtiles_path(collection)
     report = cont[collection]
     level = COLLECTION_LEVEL[collection]
-    short = doc["title"].split(" - ", 1)[-1]
 
     import duckdb
 
@@ -278,7 +276,7 @@ def boundary_readme(collection: str, docs: dict, cont: dict) -> str:
         f"| Rows with a population | {pop:,} of {full['rows']:,} |",
         f"| Average name languages | {langs} |",
         "| CRS | CRS84 (EPSG:4326), as published |",
-        f"| Order | Hilbert curve over the whole globe |",
+        "| Order | Hilbert curve over the whole globe |",
         "",
         "The three largest by land area: "
         + ", ".join(f"{n} ({c}, {a:,.0f} km²)" for n, c, a in top)
@@ -387,9 +385,10 @@ def boundary_readme(collection: str, docs: dict, cont: dict) -> str:
         "",
         f"- Overture's own [divisions guide]({DOCS_DIVISIONS}), which "
         "defines every subtype and states its coverage.",
-        f"- Schema, carried as an asset: "
-        f"[division.schema.yaml](../_assets/overture/division.schema.yaml), "
-        f"[division_area.schema.yaml](../_assets/overture/division_area.schema.yaml)",
+        "- Schema, carried as an asset: "
+        "[division.schema.yaml](../_assets/overture/division.schema.yaml), "
+        "[division_area.schema.yaml]"
+        "(../_assets/overture/division_area.schema.yaml)",
         f"- The [pipeline and issue tracker]({REPO_URL}) for this catalog.",
         "",
         "## Known issues",
@@ -475,7 +474,7 @@ def names_readme(docs: dict) -> str:
         f"| Bytes per row | {m['bytes_per_row']} |",
         f"| Row group | ~{human(m['mean_row_group_bytes'])} |",
         f"| Footer + page index | {m['footer_bytes']:,} bytes |",
-        f"| Sorted by | `name_norm`, `level`, `country`, `feature_id`, "
+        "| Sorted by | `name_norm`, `level`, `country`, `feature_id`, "
         "byte-wise on UTF-8, declared in the footer |",
         f"| PMTiles | {human(tiles.stat().st_size)}, zoom 0-"
         f"{NAMES_MAX_ZOOM} |",
@@ -759,7 +758,7 @@ def catalog_readme(docs: dict) -> str:
         "cloud-native map widgets project implements it:",
         "",
         "1. **Focus.** The search box is focused. The client fetches "
-        f"[names/index.json](names/index.json), about a kilobyte, and learns "
+        "[names/index.json](names/index.json), about a kilobyte, and learns "
         "the index's size, row group count, `catalog_version` and required "
         "attribution. It renders the attribution immediately, because ODbL "
         "requires it whether or not a search happens.",
@@ -833,7 +832,6 @@ def catalog_readme(docs: dict) -> str:
 
 def llms_txt(docs: dict) -> str:
     manifest = index_manifest()
-    m = measurements()
     index = stats(NAMES_PATH)
     lines = [
         "# EXPERIMENTAL: Overture Divisions for Geocoding (ODbL)",

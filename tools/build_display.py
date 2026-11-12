@@ -56,7 +56,6 @@ from ovcommon import (
     SIMPLIFY_SHARE,
     SIMPLIFY_TOLERANCE,
     WORK,
-    ZSTD_LEVEL,
     boundary_path,
     connect,
     copy_ordered,
