@@ -820,8 +820,10 @@ def catalog_readme(docs: dict) -> str:
         f"`s3://overturemaps-us-west-2/release/{RELEASE}/theme=divisions/` "
         f"on {EXTRACTION_DATE}. A release is immutable, so the release "
         "identifier alone pins the bytes; there is no commit or checksum to "
-        "carry. Overture lists every release in its "
-        "[release index](https://docs.overturemaps.org/release/latest/).",
+        "carry. Overture announces each release in its "
+        "[release notes](https://docs.overturemaps.org/blog/) and schedules "
+        "them on its "
+        "[release calendar](https://docs.overturemaps.org/release-calendar/).",
         "",
         f"The [source repository]({REPO_URL}) holds the pipeline that built "
         "this, the per-collection provenance records and the issue tracker.",
@@ -963,7 +965,10 @@ def llms_txt(docs: dict) -> str:
         "subtype means and Overture's own coverage statement.",
         f"- [Overture attribution and licensing]({DOCS_ATTRIBUTION}): the "
         "exact attribution this catalog's license requires.",
-        "- [Overture release index](https://docs.overturemaps.org/release/latest/): "
+        "- [Overture release notes](https://docs.overturemaps.org/blog/) and "
+        "[release calendar](https://docs.overturemaps.org/release-calendar/): "
+        "which release is current, and when the next one lands.",
+        "- [Getting Overture data](https://docs.overturemaps.org/getting-data/): "
         "the authoritative source, including the themes this catalog does not "
         "mirror.",
         f"- [geoboundaries-catalog]({SIBLING}): the CC-BY-4.0 counterpart, "

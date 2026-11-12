@@ -28,7 +28,7 @@ PUBLISH = STAGING / "publish"
 # The Overture release this catalog mirrors. A release is immutable, so the
 # version alone pins the bytes; there is no commit or checksum to carry.
 #
-#   https://docs.overturemaps.org/release/latest/
+#   https://docs.overturemaps.org/blog/   (the release notes)
 #
 RELEASE = "2026-10-21.0"
 S3_BUCKET = "overturemaps-us-west-2"
@@ -44,7 +44,8 @@ DOCS_SCHEMA_DIVISION_AREA = (
     "https://docs.overturemaps.org/schema/reference/divisions/division_area"
 )
 DOCS_ATTRIBUTION = "https://docs.overturemaps.org/attribution/"
-RELEASE_NOTES = "https://docs.overturemaps.org/release/latest/"
+RELEASE_NOTES = "https://docs.overturemaps.org/blog/"
+RELEASE_CALENDAR = "https://docs.overturemaps.org/release-calendar/"
 
 # ---------------------------------------------------------------------------
 # Scope

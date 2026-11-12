@@ -42,9 +42,9 @@ county/county.pmtiles                   88.7 MB, zoom 0-9, layer "county"
 Geometry is Overture's `class = 'land'` division area: its land-clipped,
 non-maritime outline, which Overture documents as intended for map rendering
 and cartographic display **[attested: [division_area
-schema](https://docs.overturemaps.org/schema/reference/division_areas/division_area)
-]**. The `maritime` polygon it also publishes for a coastal division is not
-carried here.
+schema](https://docs.overturemaps.org/schema/reference/divisions/division_area)]**.
+The `maritime` polygon it also publishes for a coastal division is not carried
+here.
 
 ## Accessing the data
 

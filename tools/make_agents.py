@@ -31,6 +31,7 @@ from ovcommon import (
     COLLECTION_LEVEL,
     DOCS_DIVISIONS,
     DOCS_SCHEMA_DIVISION,
+    DOCS_SCHEMA_DIVISION_AREA,
     NAMES_PATH,
     NAMES_ROW_GROUP_ROWS,
     RELEASE,
@@ -506,7 +507,7 @@ def boundary_agents(con, collection: str) -> str:
         "Geometry is Overture's `class = 'land'` division area: its "
         "land-clipped, non-maritime outline, which Overture documents as "
         "intended for map rendering and cartographic display **[attested: "
-        f"[division_area schema]({DOCS_SCHEMA_DIVISION.replace('/division', '/division_area')}) ]**. "
+        f"[division_area schema]({DOCS_SCHEMA_DIVISION_AREA})]**. "
         "The `maritime` polygon it also publishes for a coastal division is "
         "not carried here.",
         "",

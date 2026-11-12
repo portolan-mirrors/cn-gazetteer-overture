@@ -166,8 +166,9 @@ multilingual names.
 Overture Maps divisions, release `2026-10-21.0`, staged from
 `s3://overturemaps-us-west-2/release/2026-10-21.0/theme=divisions/` on
 2026-11-12. A release is immutable, so the release identifier alone pins the
-bytes; there is no commit or checksum to carry. Overture lists every release in
-its [release index](https://docs.overturemaps.org/release/latest/).
+bytes; there is no commit or checksum to carry. Overture announces each release
+in its [release notes](https://docs.overturemaps.org/blog/) and schedules them
+on its [release calendar](https://docs.overturemaps.org/release-calendar/).
 
 The [source
 repository](https://github.com/portolan-mirrors/cn-geocoder-overture) holds the

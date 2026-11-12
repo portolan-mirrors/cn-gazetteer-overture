@@ -153,7 +153,10 @@ ORDER BY level, population DESC NULLS LAST;
 - [Overture attribution and
   licensing](https://docs.overturemaps.org/attribution/): the exact attribution
   this catalog's license requires.
-- [Overture release index](https://docs.overturemaps.org/release/latest/): the
+- [Overture release notes](https://docs.overturemaps.org/blog/) and [release
+  calendar](https://docs.overturemaps.org/release-calendar/): which release is
+  current, and when the next one lands.
+- [Getting Overture data](https://docs.overturemaps.org/getting-data/): the
   authoritative source, including the themes this catalog does not mirror.
 - [geoboundaries-catalog](https://source.coop/portolan-mirrors/geoboundaries-catalog):
   the CC-BY-4.0 counterpart, same column contract, no share-alike, no
