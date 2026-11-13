@@ -396,6 +396,7 @@ def prominent_index_entry() -> dict | None:
             "primary_levels": list(bp.PRIMARY_LEVELS),
             "alt_levels": list(bp.ALT_LEVELS),
             "prominence_cut": bp.PROMINENCE_CUT,
+            "alt_prominence_cut": bp.ALT_PROMINENCE_CUT,
             "prominence_column": "prominence",
             "description": (
                 "A strict row subset of the full index, in the same schema "
@@ -405,10 +406,13 @@ def prominent_index_entry() -> dict | None:
                 "(a) a primary row at level "
                 f"{', '.join(str(x) for x in bp.PRIMARY_LEVELS)} -- country, "
                 "dependency, region, county, localadmin; or (b) an "
-                "alternative-name row at level "
-                f"{', '.join(str(x) for x in bp.ALT_LEVELS)}; or (c) a level-4 "
-                "locality row, primary or alternative, whose Overture "
-                f"cartography.prominence is >= {bp.PROMINENCE_CUT}. "
+                "alternative-name row at level 0; or (c) a level-4 locality "
+                "row whose Overture cartography.prominence is >= "
+                f"{bp.PROMINENCE_CUT} for a primary row, or >= "
+                f"{bp.ALT_PROMINENCE_CUT} for an alternative-name row. The "
+                "level-4 alternative-name rows matter: a city whose primary "
+                "name is not in Latin script (Baghdad, Tehran, Dhaka) is "
+                "reachable by its English name only through one. "
                 "prominence is Overture's own 1-100 cartographic ranking, "
                 "populated on every locality and on nothing else; it is "
                 "guidance rather than a measurement, so this is a recall "
@@ -417,9 +421,10 @@ def prominent_index_entry() -> dict | None:
             ),
             "fallback": (
                 "Query the full index for anything this file can miss: any "
-                "locality below the prominence cut, and any "
-                "alternative-language name of a region, county, localadmin or "
-                "locality. Every row of this file is also in the full index, "
+                "locality below the prominence cuts, any alternative-language "
+                "name of a region, county or localadmin, and any "
+                "alternative-language name of a locality between the two "
+                "cuts. Every row of this file is also in the full index, "
                 "so a client may query both and dedupe by feature_id."
             ),
         },

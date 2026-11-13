@@ -21,10 +21,10 @@ addresses**.
 
 **There are two files here, and the small one is where to start.** The full
 index is 409.2 MB, which no browser loads, so every keystroke against it is an
-HTTP round trip. `overture_division_names_prominent.parquet` is 8.6 MiB -- the
+HTTP round trip. `overture_division_names_prominent.parquet` is 12.9 MiB -- the
 same schema, the same sort, a strict subset of the same rows -- small enough to
 fetch whole on focus and then answer keystrokes from memory. Measured with
-hyparquet, a cold first lookup costs **300 KB over 1 request** against the
+hyparquet, a cold first lookup costs **393 KB over 1 request** against the
 prominent index and **2.64 MB over 2** against the full one. Read
 `prominent_index.criteria` in [index.json](index.json) for exactly which rows
 it holds and what it can miss; the full index is the fallback and every row of
@@ -42,7 +42,7 @@ the small file is also in it, with the same `feature_id` and the same
 | Bytes per row | 76.56 |
 | Row group | ~475.2 KB |
 | Footer + page index | 2,150,142 bytes (`footer_bytes`); thrift footer alone 2,150,142 (`footer_metadata_bytes`) |
-| Prominent index | 8.6 MB, 108,919 rows, 71 row groups of 1,536, footer 172,106 bytes |
+| Prominent index | 12.9 MB, 168,018 rows, 110 row groups of 1,536, footer 264,742 bytes |
 | Sorted by | `name_norm`, `level`, `country`, `feature_id`, byte-wise on UTF-8, declared in the footer |
 | PMTiles | 146.3 MB, zoom 0-8 |
 | CRS | CRS84 (EPSG:4326) |

@@ -40,46 +40,70 @@ when to fall back to the full index.
    localadmin rows carry either -- so above level 4 there is no ranking signal
    to cut on even if one were wanted.
 
-2. **Alternative-name rows at level 0 only.** 25,348 rows: every spelling of
-   every country and dependency, in every language Overture carries. This is
-   the one criterion that is a budget decision rather than a data fact, and
-   the measurement below is what made it.
+2. **Alternative-name rows at levels 0 and 4.** At level 0, all 25,348 of
+   them: every spelling of every country and dependency, in every language
+   Overture carries. Level 4's are gated by the higher prominence cut in
+   criterion 3. Which alt levels to carry is a budget decision rather than a
+   data fact, and the measurement below is what made it.
 
-3. **Level 4 (locality): `prominence >= 50`.** 18,931 rows out of the index's
-   5,230,456 level-4 rows. `cartography.prominence` is Overture's own 1-100
-   ranking of how important a place is to show on a map; it is populated on
-   all 3,508,156 localities and carried on their alternative-name rows too, so
-   a cut on it keeps a division's spellings with it rather than orphaning
-   them.
+3. **Level 4 (locality): primary rows at `prominence >= 50`, alternative-name
+   rows at `prominence >= 70`.** 18,931 primary + 59,099 alternative rows out
+   of the index's 5,230,456 level-4 rows. `cartography.prominence` is
+   Overture's own 1-100 ranking of how important a place is to show on a map;
+   it is populated on all 3,508,156 localities and carried on their
+   alternative-name rows too, so a cut on it keeps a division's spellings
+   with it rather than orphaning them.
+
+   The alternative-name rows are not optional garnish at this level: a
+   locality whose primary name is not written in Latin script is *only*
+   reachable by the name most users type through an alternative-name row.
+   Baghdad's primary row is "بغداد"; "Baghdad" (prominence 99) is an alt
+   row. The first shipped build of this file kept level-0 alt rows only,
+   which silently dropped Baghdad, Tehran, Dhaka and Ho Chi Minh City while
+   its published criteria claimed "primary or alternative" -- found when the
+   client's fuzzy fallback could not see Baghdad, fixed 2026-11-13.
+
+   Why two cuts: there are 7.6x as many level-4 alt rows above 50 (144,623)
+   as primary ones, so admitting them all costs 20.5 MB (see the grid). At
+   70 the spellings of every world-class city survive -- the lowest-scoring
+   English exonyms measured among 31 famous cities were Venice (83), Cologne
+   (84) and Florence (84); Baghdad is 99 -- while places at prominence 50-69
+   stay reachable by their primary spelling here and by everything in the
+   full index.
 
 The size target and "levels 0-2 entirely" are mutually exclusive
 ---------------------------------------------------------------
 This is the measurement that says so. `--measure` builds each candidate and
-weighs it against the 8 MiB budget that makes a file worth fetching whole:
+weighs it against the 8 MiB budget that makes a file worth fetching whole
+(`cut` gates level-4 primary rows, `acut` level-4 alternative-name rows):
 
-    primary levels   alt levels  cut      rows   l4 rows         size  vs 8 MiB
-      [0, 1, 2, 3] [0, 1, 2, 3]   50   392,888    18,931   29,877,370     3.6x
-      [0, 1, 2, 3]    [0, 1, 2]   50   341,443    18,931   25,941,035     3.1x
-      [0, 1, 2, 3]       [0, 1]   50   194,362    18,931   14,307,288     1.7x
-      [0, 1, 2, 3]       [0, 1]   60   183,270     7,839   13,208,888     1.6x
-      [0, 1, 2, 3]       [0, 1]   70   178,413     2,982   12,723,594     1.5x
-      [0, 1, 2, 3]          [0]   50   108,919    18,931    8,827,083     1.1x  <-
-      [0, 1, 2, 3]           []   50    83,571    18,931    7,615,813     0.9x
+    primary levels   alt levels  cut acut      rows   l4 rows         size  vs 8 MiB
+      [0, 1, 2, 3] [0, 1, 2, 3]   50   50   392,888    18,931   30,777,668     3.7x
+      [0, 1, 2, 3]       [0, 1]   50   50   194,362    18,931   14,744,196     1.8x
+      [0, 1, 2, 3]          [0]   50   50   108,919    18,931    9,037,021     1.1x
+      [0, 1, 2, 3]       [0, 4]   50   50   253,542   163,554   20,464,398     2.4x
+      [0, 1, 2, 3]       [0, 4]   50   60   205,643   115,655   16,609,391     2.0x
+      [0, 1, 2, 3]       [0, 4]   50   70   168,018    78,030   13,566,995     1.6x  <-
+      [0, 1, 2, 3]       [0, 4]   50   80   143,831    53,843   11,612,189     1.4x
+      [0, 1, 2, 3]           []   50   50    83,571    18,931    7,766,402     0.9x
 
-Carrying levels 0-2 entirely, alternative names included, is 29.9 MB however
+Carrying levels 0-2 entirely, alternative names included, is 30.8 MB however
 hard level 4 is cut -- because the alternative names *are* the rows: 257,872 of
 them at levels 0-2 against 43,138 divisions. The cause is the schema this file
 is required to share with the full index: `feature_id` and `alt_of` are
 32-character GERS identifiers and together they are a third of every
 alternative-name row.
 
-So the shipped policy keeps level-0 alternative names and drops the rest, at
-8,827,083 bytes -- 5% over 8 MiB, 10% over 8 MB. The only candidate strictly
-under the target drops multilingual matching altogether, which costs a user
-typing "Deutschland" or "中国" every result, to save 1.2 MB. That is the wrong
-trade for the catalog whose entire reason to exist beside the CC-BY one is
-multilingual names. `ALT_LEVELS` moves it either way, and every row of every
-rejected candidate is still in the full index.
+So the shipped policy keeps alternative names at level 0 (every spelling of
+every country) and level 4 from prominence 70 (every spelling of every major
+city), and drops them at levels 1-3, at 13,566,995 bytes -- 1.6x the 8 MiB
+that would be ideal, and the price of a search index that can actually find
+Baghdad. The candidates that admit levels 1-3 alt names or level-4 alt names
+at 50 buy their extra recall at 1.8-3.7x, on spellings of places a first
+keystroke rarely wants; the one candidate strictly under the target drops
+multilingual matching altogether, which costs a user typing "Deutschland" or
+"中国" every result. `ALT_LEVELS` and the two cuts move it either way, and
+every row of every rejected candidate is still in the full index.
 
 `class` was considered as the level-4 cut instead -- "keep class in ('city',
 'town')" -- and rejected on two measurements: `class` is null on 113,393
@@ -117,16 +141,18 @@ from build_names import SOURCE_NAME, STATISTICS_COLUMNS
 
 OUT = PUBLISH / "names" / "overture_division_names_prominent.parquet"
 
-# The three knobs of the row policy. Together they are the whole definition of
+# The four knobs of the row policy. Together they are the whole definition of
 # "prominent", they are published verbatim in the manifest under
 # `prominent_index.criteria`, and `--measure` prints the grid they came from.
 #
-# PRIMARY_LEVELS -- levels that keep every primary (one-per-division) row.
-# ALT_LEVELS     -- levels that *also* keep their alternative-name rows.
-# PROMINENCE_CUT -- level 4 keeps only rows at or above this prominence.
+# PRIMARY_LEVELS     -- levels that keep every primary (one-per-division) row.
+# ALT_LEVELS         -- levels that *also* keep their alternative-name rows.
+# PROMINENCE_CUT     -- level-4 primary rows need at least this prominence.
+# ALT_PROMINENCE_CUT -- level-4 alternative-name rows need this higher one.
 PRIMARY_LEVELS = (0, 1, 2, 3)
-ALT_LEVELS = (0,)
+ALT_LEVELS = (0, 4)
 PROMINENCE_CUT = 50
+ALT_PROMINENCE_CUT = 70
 
 # A byte target, not a row count: this file is on the full-load path, so the
 # row group size only matters for the range path a client may still use on it.
@@ -137,36 +163,46 @@ ROW_GROUP_TARGET_KIB = (100, 150)
 # The policy grid --measure reports, as (primary levels, alt levels, cut).
 # POOL_CUT is the lowest cut any of them uses, so one read pass collects a
 # superset and every candidate is filtered out of it in memory.
+# Entries are (primary levels, alt levels, cut, alt cut); the alt cut gates
+# level-4 alternative-name rows and is meaningless unless 4 is in alt levels.
 POLICY_GRID = (
-    ((0, 1, 2, 3), (0, 1, 2, 3), 50),
-    ((0, 1, 2, 3), (0, 1, 2), 50),
-    ((0, 1, 2, 3), (0, 1), 50),
-    ((0, 1, 2, 3), (0, 1), 60),
-    ((0, 1, 2, 3), (0, 1), 70),
-    ((0, 1, 2, 3), (0,), 50),
-    ((0, 1, 2, 3), (), 50),
+    ((0, 1, 2, 3), (0, 1, 2, 3), 50, 50),
+    ((0, 1, 2, 3), (0, 1), 50, 50),
+    ((0, 1, 2, 3), (0,), 50, 50),
+    ((0, 1, 2, 3), (0, 4), 50, 50),
+    ((0, 1, 2, 3), (0, 4), 50, 60),
+    ((0, 1, 2, 3), (0, 4), 50, 70),
+    ((0, 1, 2, 3), (0, 4), 50, 80),
+    ((0, 1, 2, 3), (), 50, 50),
 )
 POOL_CUT = 50
 
 READ_BATCH = 262_144
 
 
-def mask(table: pa.Table, primary_levels, alt_levels, cut: int):
+def mask(table: pa.Table, primary_levels, alt_levels, cut: int,
+         alt_cut: int | None = None):
     """The row policy, as one boolean mask.
 
     A row is kept when it is a primary row at a level that keeps primary rows,
-    or an alternative-name row at a level that keeps those too -- and, at level
-    4 either way, only at or above the prominence cut.
+    or an alternative-name row at a level that keeps those too -- and, at
+    level 4 either way, only at or above a prominence cut: ``cut`` for primary
+    rows, ``alt_cut`` (defaulting to ``cut``) for alternative-name rows. The
+    alt cut exists because there are 7.6x as many level-4 alternative-name
+    rows above 50 as primary ones, so the spellings need a higher bar than
+    the divisions to stay inside the byte budget.
     """
+    if alt_cut is None:
+        alt_cut = cut
     level = table.column("level")
     is_alt = pc.is_valid(table.column("alt_of"))
     # A null prominence is not >= anything. fill_null keeps the mask boolean
     # rather than letting a null propagate into or_/and_, where it would drop a
     # row silently instead of by rule. Overture populates prominence on every
     # locality and on nothing else, so this is false for levels 0-3.
-    above_cut = pc.fill_null(
-        pc.greater_equal(table.column("prominence"), cut), False
-    )
+    prominence = table.column("prominence")
+    above_cut = pc.fill_null(pc.greater_equal(prominence, cut), False)
+    above_alt_cut = pc.fill_null(pc.greater_equal(prominence, alt_cut), False)
     deep = pc.equal(level, pa.scalar(4, pa.int8()))
 
     def admitted(levels):
@@ -186,7 +222,7 @@ def mask(table: pa.Table, primary_levels, alt_levels, cut: int):
         is_alt,
         pc.or_(
             pc.and_(admitted(alt_levels), pc.invert(deep)),
-            pc.and_(pc.and_(deep, admitted(alt_levels)), above_cut),
+            pc.and_(pc.and_(deep, admitted(alt_levels)), above_alt_cut),
         ),
     )
     return pc.or_(primary_ok, alt_ok)
@@ -206,7 +242,8 @@ def collect() -> pa.Table:
     kept = []
     rows_in = 0
     started = time.time()
-    widest = ((0, 1, 2, 3), (0, 1, 2, 3), min(POOL_CUT, PROMINENCE_CUT))
+    low = min(POOL_CUT, PROMINENCE_CUT, ALT_PROMINENCE_CUT)
+    widest = ((0, 1, 2, 3), (0, 1, 2, 3, 4), low, low)
     for batch in reader.iter_batches(batch_size=READ_BATCH):
         table = pa.Table.from_batches([batch])
         rows_in += table.num_rows
@@ -222,11 +259,12 @@ def collect() -> pa.Table:
     return pa.concat_tables(kept)
 
 
-def subset(table: pa.Table, primary_levels, alt_levels, cut: int) -> pa.Table:
-    return table.filter(mask(table, primary_levels, alt_levels, cut))
+def subset(table: pa.Table, primary_levels, alt_levels, cut: int,
+           alt_cut: int | None = None) -> pa.Table:
+    return table.filter(mask(table, primary_levels, alt_levels, cut, alt_cut))
 
 
-def write(table: pa.Table, out: Path, *, cut: int) -> dict:
+def write(table: pa.Table, out: Path, *, cut: int, alt_cut: int) -> dict:
     """Write the file with the full index's own schema metadata and sort."""
     source_schema = pq.ParquetFile(NAMES_PATH).schema_arrow
     meta = footer_metadata({"cnmw:index_source": SOURCE_NAME})
@@ -239,6 +277,7 @@ def write(table: pa.Table, out: Path, *, cut: int) -> dict:
         meta[b"geo"] = source_schema.metadata[b"geo"]
     meta[b"cnmw:prominent_of"] = NAMES_PATH.name.encode()
     meta[b"cnmw:prominence_cut"] = str(cut).encode()
+    meta[b"cnmw:alt_prominence_cut"] = str(alt_cut).encode()
     table = table.replace_schema_metadata(meta)
 
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -334,12 +373,12 @@ def main(argv: list[str]) -> int:
         rows = []
         tmp = PUBLISH / "names" / ".prominent-measure.parquet"
         print(
-            f"\n  {'primary':>12} {'alt':>12} {'cut':>4} {'rows':>9} "
-            f"{'l4 rows':>9} {'size':>12} {'B/row':>7} {'vs 8 MiB':>9}"
+            f"\n  {'primary':>12} {'alt':>12} {'cut':>4} {'acut':>4} "
+            f"{'rows':>9} {'l4 rows':>9} {'size':>12} {'B/row':>7} {'vs 8 MiB':>9}"
         )
-        for primary_levels, alt_levels, cut in POLICY_GRID:
-            table = subset(pool, primary_levels, alt_levels, cut)
-            stats = write(table, tmp, cut=cut)
+        for primary_levels, alt_levels, cut, alt_cut in POLICY_GRID:
+            table = subset(pool, primary_levels, alt_levels, cut, alt_cut)
+            stats = write(table, tmp, cut=cut, alt_cut=alt_cut)
             l4 = pc.sum(
                 pc.cast(pc.equal(table.column("level"), 4), pa.int64())
             ).as_py()
@@ -348,11 +387,13 @@ def main(argv: list[str]) -> int:
                 "primary_levels": list(primary_levels),
                 "alt_levels": list(alt_levels),
                 "cut": cut,
+                "alt_cut": alt_cut,
                 "level4_rows": l4,
             })
             print(
                 f"  {str(list(primary_levels)):>12} {str(list(alt_levels)):>12} "
-                f"{cut:>4} {stats['rows']:>9,} {l4:>9,} {stats['size']:>12,} "
+                f"{cut:>4} {alt_cut:>4} "
+                f"{stats['rows']:>9,} {l4:>9,} {stats['size']:>12,} "
                 f"{stats['size'] / stats['rows']:>7.1f} "
                 f"{stats['size'] / (8 << 20):>8.1f}x"
             )
@@ -361,12 +402,15 @@ def main(argv: list[str]) -> int:
             Path(args.json).write_text(json.dumps(rows, indent=2) + "\n")
         print(
             f"\n  shipped policy: primary {list(PRIMARY_LEVELS)}, "
-            f"alt {list(ALT_LEVELS)}, cut {PROMINENCE_CUT}"
+            f"alt {list(ALT_LEVELS)}, cut {PROMINENCE_CUT}, "
+            f"alt cut {ALT_PROMINENCE_CUT}"
         )
         return 0
 
-    table = subset(collect(), PRIMARY_LEVELS, ALT_LEVELS, PROMINENCE_CUT)
-    stats = write(table, OUT, cut=PROMINENCE_CUT)
+    table = subset(
+        collect(), PRIMARY_LEVELS, ALT_LEVELS, PROMINENCE_CUT, ALT_PROMINENCE_CUT
+    )
+    stats = write(table, OUT, cut=PROMINENCE_CUT, alt_cut=ALT_PROMINENCE_CUT)
     per_group_kib = stats["size"] / stats["row_groups"] / 1024
     print(
         f"prominent: {OUT.name} {human(stats['size'])}, {stats['rows']:,} rows "

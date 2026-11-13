@@ -146,7 +146,7 @@ to read:
 
 | | upstream release | this catalog |
 |---|---|---|
-| files to search by name | 1 file, 584 MB (plus 8 files, 4.6 GB, for the polygons) | one sorted index, 409.2 MB, or the 8.6 MiB prominent index |
+| files to search by name | 1 file, 584 MB (plus 8 files, 4.6 GB, for the polygons) | one sorted index, 409.2 MB, or the 12.9 MiB prominent index |
 | sorted by name | no - `sorting_columns` not declared | yes, `name_norm` byte-wise, declared in the footer |
 | find one place by name | scan every part file | binary search over row group statistics, one range request |
 | row groups | 256 groups of ~18,400 rows, median 2.22 MB, up to 3.85 MB | 876 groups of 6,400 rows in the index; 8 to 960 rows in the boundary files, sized by what one feature costs |

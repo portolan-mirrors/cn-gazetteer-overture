@@ -481,7 +481,7 @@ def names_readme(docs: dict) -> str:
         f"{prominent['size'] / (1 << 20):.1f} MiB -- the same schema, the "
         "same sort, a strict subset of the same rows -- small enough to "
         "fetch whole on focus and then answer keystrokes from memory. "
-        "Measured with hyparquet, a cold first lookup costs **300 KB over 1 "
+        "Measured with hyparquet, a cold first lookup costs **393 KB over 1 "
         "request** against the prominent index and **2.64 MB over 2** "
         "against the full one. Read `prominent_index.criteria` in "
         "[index.json](index.json) for exactly which rows it holds and what "
@@ -727,6 +727,9 @@ def catalog_readme(docs: dict) -> str:
             f"{human(tiles.stat().st_size)} |"
         )
     index = stats(NAMES_PATH)
+    prominent_mib = (
+        f"{stats(PUBLISH / 'names' / PROMINENT_NAME)['size'] / (1 << 20):.1f} MiB"
+    )
     names_tiles = pmtiles_path("names")
     total += index["size"] + names_tiles.stat().st_size
 
@@ -889,7 +892,7 @@ def catalog_readme(docs: dict) -> str:
         "|---|---|---|",
         "| files to search by name | 1 file, 584 MB (plus 8 files, 4.6 GB, "
         f"for the polygons) | one sorted index, {human(index['size'])}, or "
-        "the 8.6 MiB prominent index |",
+        f"the {prominent_mib} prominent index |",
         "| sorted by name | no - `sorting_columns` not declared | yes, "
         "`name_norm` byte-wise, declared in the footer |",
         "| find one place by name | scan every part file | binary search over "

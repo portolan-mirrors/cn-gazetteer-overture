@@ -38,8 +38,8 @@ administrative boundaries only — **never street addresses**. Public root:
 
 ```
 names/overture_division_names.parquet            409.2 MB, 5,604,413 rows, 876 row groups of 6,400
-names/overture_division_names_prominent.parquet  8.6 MB, 108,919 rows, 71 row groups of 1,536 — the eager-load subset
-names/index.json                                 7,612 bytes, the manifest to fetch first
+names/overture_division_names_prominent.parquet  12.9 MB, 168,018 rows, 110 row groups of 1,536 — the eager-load subset
+names/index.json                                 7,916 bytes, the manifest to fetch first
 names/names.pmtiles                              146.3 MB, zoom 0-8, layer "names"
 ```
 
@@ -51,32 +51,35 @@ file. The shape lives in the boundary collection at the row's `level`.
 
 ## Two files: read the small one first
 
-`overture_division_names_prominent.parquet` is the **prominent index**: 108,919
-of the full index's 5,604,413 rows, 8.6 MB against 409.2 MB, in the same schema
-and the same sort. It is a strict row subset — it copies rows rather than
-recomputing them — so a hit found in it carries the same `feature_id` and the
-same `geometry_ref` as the same row in the full index and resolves to geometry
-identically. Neither file is authoritative over the other. [derived]
+`overture_division_names_prominent.parquet` is the **prominent index**: 168,018
+of the full index's 5,604,413 rows, 12.9 MB against 409.2 MB, in the same
+schema and the same sort. It is a strict row subset — it copies rows rather
+than recomputing them — so a hit found in it carries the same `feature_id` and
+the same `geometry_ref` as the same row in the full index and resolves to
+geometry identically. Neither file is authoritative over the other. [derived]
 
 Measured with hyparquet, reading one row group cold:
 
 | | full index | prominent index |
 |---|---|---|
-| size | 409.2 MB | 8.6 MB |
-| rows | 5,604,413 | 108,919 |
+| size | 409.2 MB | 12.9 MB |
+| rows | 5,604,413 | 168,018 |
 | footer, speculative 512 KiB tail | 2.15 MB in **2 requests** | 524 KB in 1 |
-| footer, exact `footer_metadata_bytes` | 2.15 MB in 1 request | 172 KB in 1 |
+| footer, exact `footer_metadata_bytes` | 2.15 MB in 1 request | 265 KB in 1 |
 | one row group | 487 KB | 128 KB |
-| **first lookup, cold** | **2.64 MB** | **300 KB** |
-| whole-file load | not viable | 8.6 MiB once, then 0 per keystroke |
+| **first lookup, cold** | **2.64 MB** | **393 KB** |
+| whole-file load | not viable | 12.9 MB once, then 0 per keystroke |
 
 **What the prominent index holds**, from `index.json` ->
 `prominent_index.criteria`: every primary row at levels 0-3 (country,
 dependency, region, county, localadmin), every alternative-name row at level 0,
-and every level-4 locality row at `cartography.prominence` >= 50. **What it
-misses, and so when to fall back to the full index:** any locality below that
-cut, and any alternative-language name of a region, county, localadmin or
-locality. A client may query both and dedupe by `feature_id`. [derived]
+and every level-4 locality row at `cartography.prominence` >= 50 for a primary
+row or >= 70 for an alternative-name one — the rows that make Baghdad, Tehran
+and Dhaka reachable by their English names. **What it misses, and so when to
+fall back to the full index:** any locality below those cuts, any
+alternative-language name of a region, county or localadmin, and any
+alternative-language name of a locality between the two cuts. A client may
+query both and dedupe by `feature_id`. [derived]
 
 ## Accessing the data
 

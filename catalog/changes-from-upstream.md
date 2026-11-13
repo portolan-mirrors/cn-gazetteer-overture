@@ -178,11 +178,15 @@ on it.
 
 Not in Overture, and not a transformation of the data — a **row subset of this
 catalog's own index**, in the same schema and the same sort.
-`overture_division_names_prominent.parquet` is 8.6 MiB against the full index's
-409 MB, holding 108,919 of its 5,604,413 rows: every primary row at levels 0-3
-(country, dependency, region, county, localadmin), every alternative-name row
-at level 0, and every level-4 locality row at `cartography.prominence` 50 or
-above.
+`overture_division_names_prominent.parquet` is 12.9 MiB against the full
+index's 409 MB, holding 168,018 of its 5,604,413 rows: every primary row at
+levels 0-3 (country, dependency, region, county, localadmin), every
+alternative-name row at level 0, and every level-4 locality row at
+`cartography.prominence` 50 or above for a primary row, 70 or above for an
+alternative-name row. The level-4 alternative-name rows are what make a city
+whose primary name is not in Latin script — Baghdad ("بغداد"), Tehran, Dhaka —
+reachable by its English name; the first published build dropped them, which
+its own criteria text did not admit, and was fixed on 2026-11-13.
 
 It exists because a 409 MB index means every keystroke is an HTTP round trip.
 This one is small enough to fetch whole on focus and answer keystrokes from
@@ -192,7 +196,7 @@ deeper. Every row in it is byte-for-byte a row of the full index — same
 resolves its geometry identically, and neither is authoritative over the other.
 
 **What it can miss, and therefore when to fall back:** any locality below the
-prominence cut, and any alternative-language name of a region, county,
+prominence cuts, and any alternative-language name of a region, county,
 localadmin or locality. `catalog/names/index.json` publishes the criteria and
 the fallback rule verbatim under `prominent_index.criteria`.
 

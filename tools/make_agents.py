@@ -47,7 +47,9 @@ from ovcommon import (
 )
 from build_pmtiles import MAX_ZOOM, NAMES_MAX_ZOOM
 from build_prominent import (
+    ALT_PROMINENCE_CUT,
     OUT as PROMINENT_PATH,
+    PROMINENCE_CUT,
     ROW_GROUP_ROWS as PROMINENT_ROW_GROUP_ROWS,
 )
 
@@ -693,20 +695,24 @@ def names_agents(con) -> str:
         "| footer, speculative 512 KiB tail | 2.15 MB in **2 requests** | "
         "524 KB in 1 |",
         "| footer, exact `footer_metadata_bytes` | 2.15 MB in 1 request | "
-        "172 KB in 1 |",
+        "265 KB in 1 |",
         "| one row group | 487 KB | 128 KB |",
-        "| **first lookup, cold** | **2.64 MB** | **300 KB** |",
-        "| whole-file load | not viable | 8.6 MiB once, then 0 per keystroke |",
+        "| **first lookup, cold** | **2.64 MB** | **393 KB** |",
+        "| whole-file load | not viable | "
+        f"{human(PROMINENT_PATH.stat().st_size)} once, then 0 per keystroke |",
         "",
         "**What the prominent index holds**, from "
         "`index.json` -> `prominent_index.criteria`: every primary row at "
         "levels 0-3 (country, dependency, region, county, localadmin), every "
         "alternative-name row at level 0, and every level-4 locality row at "
-        "`cartography.prominence` >= 50. **What it misses, and so when to "
-        "fall back to the full index:** any locality below that cut, and any "
-        "alternative-language name of a region, county, localadmin or "
-        "locality. A client may query both and dedupe by `feature_id`. "
-        "[derived]",
+        f"`cartography.prominence` >= {PROMINENCE_CUT} for a primary row or "
+        f">= {ALT_PROMINENCE_CUT} for an alternative-name one — the rows "
+        "that make Baghdad, Tehran and Dhaka reachable by their English "
+        "names. **What it misses, and so when to fall back to the full "
+        "index:** any locality below those cuts, any alternative-language "
+        "name of a region, county or localadmin, and any "
+        "alternative-language name of a locality between the two cuts. A "
+        "client may query both and dedupe by `feature_id`. [derived]",
         "",
         "## Accessing the data",
         "",
@@ -934,12 +940,13 @@ def catalog_agents(con) -> str:
         "and gets you everything in one request; `footer_metadata_bytes` is "
         "the thrift footer alone, which is all hyparquet ever reads, since "
         "it has no sub-chunk read.",
-        "    - **`prominent_index`.** A second, 8.6 MiB names file in the "
+        "    - **`prominent_index`.** A second, 12.9 MB names file in the "
         "same collection, with the same schema and the same sort as the full "
         "409 MB index. Fetch it whole and answer keystrokes from memory. "
         "`prominent_index.criteria` states exactly which rows it holds — "
         "every division down to localadmin, every alternative-language "
-        "spelling of every country, every locality at `prominence` >= 50 — "
+        "spelling of every country, every locality at `prominence` >= 50 and "
+        "every major city's spellings at `prominence` >= 70 — "
         "and `prominent_index.criteria.fallback` states what it can miss, "
         "which is when to go to the full index. Every row in it is also in "
         "the full index, with the same `feature_id` and the same "

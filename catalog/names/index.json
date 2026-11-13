@@ -53,12 +53,12 @@
   },
   "prominent_index": {
     "url": "./overture_division_names_prominent.parquet",
-    "size": 9036919,
-    "row_count": 108919,
-    "row_groups": 71,
-    "footer_bytes": 224375,
-    "footer_metadata_bytes": 172106,
-    "checksum": "122072815d4169d56e699ef70ea08ca791429921af97bd02ce0b92b0fc2987ee5575",
+    "size": 13566995,
+    "row_count": 168018,
+    "row_groups": 110,
+    "footer_bytes": 345805,
+    "footer_metadata_bytes": 264742,
+    "checksum": "1220983613721fb8c442a302eee5ad19104027dfcff44857b815c6679af4bdb9e259",
     "row_group_rows": 1536,
     "sorted_by": [
       "name_norm",
@@ -90,9 +90,9 @@
         "alt_rows": 0
       },
       "4": {
-        "rows": 18931,
+        "rows": 78030,
         "primary_rows": 18931,
-        "alt_rows": 0
+        "alt_rows": 59099
       }
     },
     "criteria": {
@@ -103,12 +103,14 @@
         3
       ],
       "alt_levels": [
-        0
+        0,
+        4
       ],
       "prominence_cut": 50,
+      "alt_prominence_cut": 70,
       "prominence_column": "prominence",
-      "description": "A strict row subset of the full index, in the same schema and the same sort, so a hit found here resolves its geometry exactly as a hit found there: same feature_id, same geometry_ref, same name_norm. A row is included when it is (a) a primary row at level 0, 1, 2, 3 -- country, dependency, region, county, localadmin; or (b) an alternative-name row at level 0; or (c) a level-4 locality row, primary or alternative, whose Overture cartography.prominence is >= 50. prominence is Overture's own 1-100 cartographic ranking, populated on every locality and on nothing else; it is guidance rather than a measurement, so this is a recall boundary and not a claim that an excluded place is unimportant.",
-      "fallback": "Query the full index for anything this file can miss: any locality below the prominence cut, and any alternative-language name of a region, county, localadmin or locality. Every row of this file is also in the full index, so a client may query both and dedupe by feature_id."
+      "description": "A strict row subset of the full index, in the same schema and the same sort, so a hit found here resolves its geometry exactly as a hit found there: same feature_id, same geometry_ref, same name_norm. A row is included when it is (a) a primary row at level 0, 1, 2, 3 -- country, dependency, region, county, localadmin; or (b) an alternative-name row at level 0; or (c) a level-4 locality row whose Overture cartography.prominence is >= 50 for a primary row, or >= 70 for an alternative-name row. The level-4 alternative-name rows matter: a city whose primary name is not in Latin script (Baghdad, Tehran, Dhaka) is reachable by its English name only through one. prominence is Overture's own 1-100 cartographic ranking, populated on every locality and on nothing else; it is guidance rather than a measurement, so this is a recall boundary and not a claim that an excluded place is unimportant.",
+      "fallback": "Query the full index for anything this file can miss: any locality below the prominence cuts, any alternative-language name of a region, county or localadmin, and any alternative-language name of a locality between the two cuts. Every row of this file is also in the full index, so a client may query both and dedupe by feature_id."
     }
   },
   "boundaries": [

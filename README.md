@@ -13,8 +13,8 @@ A git-backed [Portolan](https://www.portolan-sdi.org/) catalog that mirrors the
 search and draw administrative places over HTTP range requests, with no server
 and no API key. Five boundary levels from country down to locality, each with a
 display-simplified companion, and a multilingual gazetteer index over all of
-them — plus a small *prominent* index, 8.6 MiB against the full 409 MB, holding
-the rows a first keystroke is likely to want.
+them — plus a small *prominent* index, 12.9 MiB against the full 409 MB,
+holding the rows a first keystroke is likely to want.
 
 It is a **gazetteer, not a geocoder**: it resolves place names and
 administrative boundaries, not street addresses. There is no house number, no
@@ -68,7 +68,7 @@ Six collections. Every number here comes from the built files;
 | `county` | 2 | 38,937 | 649 MB, 406 groups of 96 | 113 MB |
 | `localadmin` | 3 | 21,502 | 143 MB, 90 groups of 240 | 54 MB |
 | `locality` | 4 | 556,094 | 1.2 GB, 580 groups of 960 | 871 MB |
-| `names` | 0-4 | 5,604,413 | 409 MB, 876 groups of 6,400, sorted by folded name | 8.6 MiB prominent index |
+| `names` | 0-4 | 5,604,413 | 409 MB, 876 groups of 6,400, sorted by folded name | 12.9 MiB prominent index |
 
 **The row group sizes are one reason this catalog exists.** Every boundary
 level gets a row group count measured from its own compressed bytes per row,
@@ -86,9 +86,11 @@ with row groups sized so a keystroke is one small range request.
 means every keystroke is a round trip. `overture_division_names_prominent.parquet`
 is the same schema and the same sort over a strict row subset — every division
 from country down to localadmin, every alternative-language spelling of every
-country, and every locality Overture ranks at `cartography.prominence` 50 or
-above — at 8.6 MiB, small enough to fetch whole on focus and answer keystrokes
-from memory. `tools/build_prominent.py` owns the criteria and the measurement
+country, every locality Overture ranks at `cartography.prominence` 50 or above,
+and every alternative-language spelling of a locality at 70 or above (the rows
+that make Baghdad, Tehran and Dhaka reachable by their English names) — at
+12.9 MiB, small enough to fetch whole on focus and answer keystrokes from
+memory. `tools/build_prominent.py` owns the criteria and the measurement
 grid behind them, and `catalog/names/index.json` publishes both under
 `prominent_index.criteria` so a client knows what the small file can miss and
 when to fall back.

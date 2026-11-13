@@ -75,17 +75,17 @@ with the full file.
       footer plus page index, and gets you everything in one request;
       `footer_metadata_bytes` is the thrift footer alone, which is all
       hyparquet ever reads, since it has no sub-chunk read.
-    - **`prominent_index`.** A second, 8.6 MiB names file in the same
+    - **`prominent_index`.** A second, 12.9 MB names file in the same
       collection, with the same schema and the same sort as the full 409 MB
       index. Fetch it whole and answer keystrokes from memory.
       `prominent_index.criteria` states exactly which rows it holds — every
       division down to localadmin, every alternative-language spelling of every
-      country, every locality at `prominence` >= 50 — and
-      `prominent_index.criteria.fallback` states what it can miss, which is
-      when to go to the full index. Every row in it is also in the full index,
-      with the same `feature_id` and the same `geometry_ref`, so the two are
-      interchangeable for resolution and a client may query both and dedupe by
-      `feature_id`.
+      country, every locality at `prominence` >= 50 and every major city's
+      spellings at `prominence` >= 70 — and `prominent_index.criteria.fallback`
+      states what it can miss, which is when to go to the full index. Every row
+      in it is also in the full index, with the same `feature_id` and the same
+      `geometry_ref`, so the two are interchangeable for resolution and a
+      client may query both and dedupe by `feature_id`.
 2. Resolve a name against [names](names/collection.json) with a `name_norm LIKE
    'prefix%'` range read.
 3. Join the hit's `feature_id` to `division_id` in the boundary collection at
