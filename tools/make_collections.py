@@ -80,6 +80,63 @@ LICENSE_URL = "https://opendatacommons.org/licenses/odbl/"
 SIBLING_SOURCECOOP = "https://source.coop/portolan-mirrors/geoboundaries-catalog"
 SIBLING_REPO = "https://github.com/portolan-mirrors/geoboundaries-catalog"
 
+# The gazetteer extensions (design doc / docs/design/widgets-architecture.md
+# in cng-map-widgets). Published and authoritative at these URLs.
+GAZETTEER_SCHEMA = "https://cholmes.github.io/stac-gazetteer/gazetteer/v1.0.0/schema.json"
+GAZETTEER_BOUNDARIES_SCHEMA = (
+    "https://cholmes.github.io/stac-gazetteer/gazetteer-boundaries/v1.0.0/schema.json"
+)
+SCIENTIFIC_SCHEMA = "https://stac-extensions.github.io/scientific/v1.0.0/schema.json"
+
+NAMES_MANIFEST = CATALOG / "names" / "index.json"
+
+
+def load_names_manifest() -> dict | None:
+    """The hand-maintained geocoder index manifest (cnmw-index/1.0).
+
+    This script never writes it -- tools/build_names.py does, from the built
+    files -- but the gazetteer/gazetteer-boundaries extension fields below
+    are sourced from it rather than recomputed, so a manifest edit and a
+    collection rebuild never disagree about a row group count or a join
+    column.
+    """
+    if not NAMES_MANIFEST.exists():
+        return None
+    return json.loads(NAMES_MANIFEST.read_text())
+
+
+def gazetteer_boundary_fields(entry: dict, variant: str) -> dict:
+    """The ``gazetteer:*`` fields for one boundary file, sourced from the manifest.
+
+    ``entry`` is one ``boundaries[]`` element of ``catalog/names/index.json``;
+    ``variant`` is ``"full"`` or ``"display"``. Shared by both call sites: a
+    boundary collection's own `data`/`display` asset, and the names
+    collection's inline ``boundaries-{collection}-{variant}`` asset.
+    """
+    file_info = entry[variant]
+    fields = {
+        "gazetteer:level": entry["level"],
+        "gazetteer:variant": variant,
+        "gazetteer:geometry_column": entry["geometry_column"],
+        # Explicit null would be legal and meaningful for a level with no id
+        # column (see the extension's schema.json comment on
+        # gazetteer:feature_id_column), but every level in this catalog's
+        # manifest has one (`division_id`), so this is never null here.
+        "gazetteer:feature_id_column": entry["feature_id_column"],
+        "gazetteer:row_group_rows": entry["row_group_rows"],
+        "gazetteer:row_groups": file_info["row_groups"],
+        "gazetteer:footer_metadata_bytes": file_info["footer_metadata_bytes"],
+    }
+    # Optional fields this manifest's boundaries[] entries do not carry
+    # (every level here has a feature_id_column, so no join fallback is
+    # needed) -- included only if a future manifest adds them.
+    if "country_column" in entry:
+        fields["gazetteer:country_column"] = entry["country_column"]
+    if "index_key_column" in entry:
+        fields["gazetteer:index_key_column"] = entry["index_key_column"]
+    return fields
+
+
 PROVIDERS = [
     {
         "name": "Overture Maps Foundation",
@@ -1319,6 +1376,16 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     is_names = spec["id"] == "names"
     data = NAMES_PATH if is_names else boundary_path(spec["id"])
+    # Wire up the gazetteer / gazetteer-boundaries STAC extensions
+    # (cholmes.github.io/stac-gazetteer). Every value below is sourced from
+    # catalog/names/index.json -- the hand-maintained manifest -- rather
+    # than recomputed, so the extension fields and the manifest can never
+    # disagree. catalog/names/index.json itself is untouched: it stays
+    # published alongside these extensions during the transition (design
+    # doc + the cng-map-widgets issue #1 "both" ruling).
+    names_manifest = load_names_manifest()
+    extra_extensions: list[str] = []
+    collection_extra: dict = {}
     tiles = pmtiles_path(spec["id"])
     for path in (data, tiles):
         if not path.exists():
@@ -1349,6 +1416,46 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
                 "instead and comes here for anything that file can miss."
             ),
         }
+        if names_manifest is not None:
+            extra_extensions += [
+                SCIENTIFIC_SCHEMA, GAZETTEER_SCHEMA, GAZETTEER_BOUNDARIES_SCHEMA,
+            ]
+            collection_extra["sci:citation"] = names_manifest["attribution"][0]["text"]
+            # No DOI for this catalog's attribution -- omit sci:doi rather
+            # than fabricate one.
+            collection_extra["gazetteer:levels"] = names_manifest["levels"]
+            # The normalization algorithm identifier is not itself a
+            # manifest field -- `index.sorted_by` names the columns, not
+            # the algorithm -- so this one string is the fixed identifier
+            # for tools/gbcommon.py-equivalent normalize_name, not read off
+            # the manifest.
+            collection_extra["gazetteer:normalization"] = "nfd-strip-marks-lower/1"
+            collection_extra["gazetteer:sort"] = names_manifest["index"]["sorted_by"]
+            collection_extra["gazetteer:dropped_unnamed"] = names_manifest["dropped_unnamed"]
+            collection_extra["gazetteer:stats_truncated"] = names_manifest["stats_truncated"]
+
+            assets["data"]["roles"] = assets["data"]["roles"] + ["gazetteer-index"]
+            assets["data"].update({
+                # Not in the task's field list for this asset, but the
+                # reference implementation (geoboundaries-catalog) found
+                # @cnmw/geocoder-core's STAC reader
+                # (normalizeStacGazetteerCollection) reads `rows` from
+                # exactly this asset field -- without it a client
+                # round-trips to `rows: undefined`. stats["rows"] is the
+                # same number already on the collection's own
+                # table:row_count.
+                "table:row_count": stats["rows"],
+                "gazetteer:row_groups": names_manifest["index"]["row_groups"],
+                "gazetteer:row_group_rows": names_manifest["index"]["row_group_rows"],
+                # The manifest's "index" block has no explicit
+                # feature_id_column -- the index parquet's id column is
+                # literally named "feature_id", which is the documented
+                # default.
+                "gazetteer:feature_id_column": names_manifest["index"].get(
+                    "feature_id_column", "feature_id"
+                ),
+                "gazetteer:footer_metadata_bytes": names_manifest["index"]["footer_metadata_bytes"],
+            })
         prominent = PUBLISH / "names" / PROMINENT_NAME
         if prominent.exists():
             pstats = parquet_stats(prominent)
@@ -1390,6 +1497,23 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
                     "`prominent_index.criteria`."
                 ),
             }
+            if names_manifest is not None and "prominent_index" in names_manifest:
+                # The prominent index is exposed as a SECOND gazetteer-index
+                # asset, distinguished by the "prominent" role. The reader
+                # looks for exactly that role pair
+                # (normalizeStacGazetteerCollection in @cnmw/geocoder-core).
+                assets["prominent-index"]["roles"] = assets["prominent-index"]["roles"] + [
+                    "gazetteer-index", "prominent",
+                ]
+                prominent_manifest = names_manifest["prominent_index"]
+                assets["prominent-index"].update({
+                    "gazetteer:row_groups": prominent_manifest["row_groups"],
+                    "gazetteer:row_group_rows": prominent_manifest["row_group_rows"],
+                    "gazetteer:feature_id_column": prominent_manifest.get(
+                        "feature_id_column", "feature_id"
+                    ),
+                    "gazetteer:footer_metadata_bytes": prominent_manifest["footer_metadata_bytes"],
+                })
         manifest = out_dir / "index.json"
         if not manifest.exists():
             sys.exit(f"missing {manifest}; run tools/build_names.py first")
@@ -1420,6 +1544,35 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
                 "share_alike flag."
             ),
         }
+        if names_manifest is not None:
+            # Inline gazetteer-boundaries assets for every level/variant, so
+            # a client that has fetched only this one collection document
+            # can still resolve geometry -- the "both" ruling in
+            # cng-map-widgets issue #1: boundary collections self-describe
+            # AND the names collection carries the same facts inline.
+            for entry in names_manifest["boundaries"]:
+                sibling_short = next(
+                    (s["short"] for s in specs if s["id"] == entry["collection"]),
+                    entry["collection"],
+                )
+                for variant in ("full", "display"):
+                    if variant not in entry:
+                        continue
+                    file_info = entry[variant]
+                    asset_key = f"boundaries-{entry['collection']}-{variant}"
+                    asset = {
+                        "href": file_info["url"],
+                        "type": "application/vnd.apache.parquet",
+                        "title": f"{sibling_short} ({variant})",
+                        "roles": (
+                            ["gazetteer-boundaries", "overview"]
+                            if variant == "display" else ["gazetteer-boundaries"]
+                        ),
+                        "file:size": file_info["size"],
+                        "table:row_count": file_info["row_count"],
+                    }
+                    asset.update(gazetteer_boundary_fields(entry, variant))
+                    assets[asset_key] = asset
     else:
         display = display_path(spec["id"])
         if not display.exists():
@@ -1471,6 +1624,18 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
                 "with it, and measure with the full file."
             ),
         }
+        if names_manifest is not None:
+            entry = next(
+                (b for b in names_manifest["boundaries"]
+                 if b["collection"] == spec["id"]),
+                None,
+            )
+            if entry is not None:
+                extra_extensions.append(GAZETTEER_BOUNDARIES_SCHEMA)
+                assets["data"]["roles"] = assets["data"]["roles"] + ["gazetteer-boundaries"]
+                assets["data"].update(gazetteer_boundary_fields(entry, "full"))
+                assets["display"]["roles"] = assets["display"]["roles"] + ["gazetteer-boundaries"]
+                assets["display"].update(gazetteer_boundary_fields(entry, "display"))
     assets["pmtiles"] = {
         "href": f"./{tiles.name}",
         "type": "application/vnd.pmtiles",
@@ -1543,6 +1708,7 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
             "https://stac-extensions.github.io/table/v1.2.0/schema.json",
             "https://stac-extensions.github.io/file/v2.1.0/schema.json",
             "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json",
+            *extra_extensions,
         ],
         "id": spec["id"],
         "title": spec["title"],
@@ -1566,6 +1732,7 @@ def build(spec: dict, specs: list[dict], facts: dict, reports: dict) -> dict:
         # date the Overture release was staged, which is what a reader
         # compares against the live release index.
         "updated": f"{EXTRACTION_DATE}T00:00:00Z",
+        **collection_extra,
         "table:primary_geometry": stats["primary"],
         "table:row_count": stats["rows"],
         "table:columns": columns,

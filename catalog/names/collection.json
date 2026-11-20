@@ -5,7 +5,10 @@
     "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json",
     "https://stac-extensions.github.io/table/v1.2.0/schema.json",
     "https://stac-extensions.github.io/file/v2.1.0/schema.json",
-    "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json"
+    "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json",
+    "https://stac-extensions.github.io/scientific/v1.0.0/schema.json",
+    "https://cholmes.github.io/stac-gazetteer/gazetteer/v1.0.0/schema.json",
+    "https://cholmes.github.io/stac-gazetteer/gazetteer-boundaries/v1.0.0/schema.json"
   ],
   "id": "names",
   "title": "Overture Divisions Multilingual Gazetteer (Name Index)",
@@ -75,6 +78,23 @@
     }
   },
   "updated": "2026-11-12T00:00:00Z",
+  "sci:citation": "\u00a9 OpenStreetMap contributors. Available under the Open Database License.",
+  "gazetteer:levels": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "gazetteer:normalization": "nfd-strip-marks-lower/1",
+  "gazetteer:sort": [
+    "name_norm",
+    "level",
+    "country",
+    "feature_id"
+  ],
+  "gazetteer:dropped_unnamed": 0,
+  "gazetteer:stats_truncated": false,
   "table:primary_geometry": "geometry",
   "table:row_count": 5604413,
   "table:columns": [
@@ -185,26 +205,38 @@
       "type": "application/vnd.apache.parquet",
       "title": "Multilingual name index, GeoParquet 1.1 (876 row groups of 6,400 rows, zstd, page index, sorted by name_norm)",
       "roles": [
-        "data"
+        "data",
+        "gazetteer-index"
       ],
       "file:size": 429055759,
       "file:checksum": "1220f8fa54fe3dbf1c21a645833633a566ba43946fe4fa3f46605d65132e07ee7d27",
       "table:primary_geometry": "geometry",
-      "description": "The whole gazetteer. Too large to load in a browser, and not meant to be: it is sorted by `name_norm` so a typed prefix is a range request. A client that wants an answer with no round trip loads the `prominent-index` asset instead and comes here for anything that file can miss."
+      "description": "The whole gazetteer. Too large to load in a browser, and not meant to be: it is sorted by `name_norm` so a typed prefix is a range request. A client that wants an answer with no round trip loads the `prominent-index` asset instead and comes here for anything that file can miss.",
+      "table:row_count": 5604413,
+      "gazetteer:row_groups": 876,
+      "gazetteer:row_group_rows": 6400,
+      "gazetteer:feature_id_column": "feature_id",
+      "gazetteer:footer_metadata_bytes": 2150142
     },
     "prominent-index": {
       "href": "./overture_division_names_prominent.parquet",
       "type": "application/vnd.apache.parquet",
-      "title": "Prominent gazetteer index, GeoParquet 1.1 (71 row groups of 1,536 rows, 8.6 MiB, same schema and sort as the full index)",
+      "title": "Prominent gazetteer index, GeoParquet 1.1 (110 row groups of 1,536 rows, 12.9 MiB, same schema and sort as the full index)",
       "roles": [
         "data",
-        "overview"
+        "overview",
+        "gazetteer-index",
+        "prominent"
       ],
-      "file:size": 9036919,
-      "file:checksum": "122072815d4169d56e699ef70ea08ca791429921af97bd02ce0b92b0fc2987ee5575",
+      "file:size": 13566995,
+      "file:checksum": "1220983613721fb8c442a302eee5ad19104027dfcff44857b815c6679af4bdb9e259",
       "table:primary_geometry": "geometry",
-      "table:row_count": 108919,
-      "description": "A strict row subset of the full index -- 108,919 rows of 5,604,413 -- small enough for a client to fetch whole on focus and answer keystrokes from memory, while the full index stays available by range request for anything deeper. Same schema, same sort, same `feature_id` and `geometry_ref`, so a hit found here resolves its geometry exactly as a hit found there. It holds every division from country down to localadmin, every alternative-language spelling of every country and dependency, and every locality Overture ranks at `cartography.prominence` 50 or above. What it can miss, and therefore when to fall back: any locality below that cut, and any alternative-language name of a region, county, localadmin or locality. The full criteria, with row counts per level, are in `index.json` under `prominent_index.criteria`."
+      "table:row_count": 168018,
+      "description": "A strict row subset of the full index -- 168,018 rows of 5,604,413 -- small enough for a client to fetch whole on focus and answer keystrokes from memory, while the full index stays available by range request for anything deeper. Same schema, same sort, same `feature_id` and `geometry_ref`, so a hit found here resolves its geometry exactly as a hit found there. It holds every division from country down to localadmin, every alternative-language spelling of every country and dependency, and every locality Overture ranks at `cartography.prominence` 50 or above. What it can miss, and therefore when to fall back: any locality below that cut, and any alternative-language name of a region, county, localadmin or locality. The full criteria, with row counts per level, are in `index.json` under `prominent_index.criteria`.",
+      "gazetteer:row_groups": 110,
+      "gazetteer:row_group_rows": 1536,
+      "gazetteer:feature_id_column": "feature_id",
+      "gazetteer:footer_metadata_bytes": 264742
     },
     "index-manifest": {
       "href": "./index.json",
@@ -213,9 +245,184 @@
       "roles": [
         "metadata"
       ],
-      "file:size": 7612,
-      "file:checksum": "1220f9256634c352f758e2c532dbce22abf301354334fef60e8db86bba25768e5d48",
+      "file:size": 7916,
+      "file:checksum": "12209c52d37062bc05cfb25876be9803ff76a676f86aaa766e3a605ab69e459c2c6c",
       "description": "The few kilobytes a client fetches before anything else. For the full index, the prominent index and every boundary and display file: the URL, size, checksum, row count, row group count and `row_group_rows`, plus two exact metadata sizes. `footer_bytes` is the whole trailing span, thrift footer plus page index, so one range request of exactly that many bytes from the end of a file leaves a client holding all of its metadata; `footer_metadata_bytes` is the thrift footer alone, the minimum needed to locate row groups and what a hyparquet client should pass as `initialFetchSize`. Without them hyparquet speculates a 512 KiB tail, which on the 409 MB index is a guaranteed second round trip because its footer is 2.1 MB. Also carries `prominent_index.criteria` -- exactly which rows the small index holds and what it can miss -- the catalog version, and the attribution each file requires with a share_alike flag."
+    },
+    "boundaries-country-full": {
+      "href": "../country/overture_country.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Country and Dependency Boundaries (full)",
+      "roles": [
+        "gazetteer-boundaries"
+      ],
+      "file:size": 53887574,
+      "table:row_count": 272,
+      "gazetteer:level": 0,
+      "gazetteer:variant": "full",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 8,
+      "gazetteer:row_groups": 34,
+      "gazetteer:footer_metadata_bytes": 116670
+    },
+    "boundaries-country-display": {
+      "href": "../country/overture_country_display.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Country and Dependency Boundaries (display)",
+      "roles": [
+        "gazetteer-boundaries",
+        "overview"
+      ],
+      "file:size": 5471919,
+      "table:row_count": 272,
+      "gazetteer:level": 0,
+      "gazetteer:variant": "display",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 8,
+      "gazetteer:row_groups": 34,
+      "gazetteer:footer_metadata_bytes": 83921
+    },
+    "boundaries-region-full": {
+      "href": "../region/overture_region.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Region Boundaries (full)",
+      "roles": [
+        "gazetteer-boundaries"
+      ],
+      "file:size": 242197071,
+      "table:row_count": 3929,
+      "gazetteer:level": 1,
+      "gazetteer:variant": "full",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 26,
+      "gazetteer:row_groups": 152,
+      "gazetteer:footer_metadata_bytes": 520517
+    },
+    "boundaries-region-display": {
+      "href": "../region/overture_region_display.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Region Boundaries (display)",
+      "roles": [
+        "gazetteer-boundaries",
+        "overview"
+      ],
+      "file:size": 25099168,
+      "table:row_count": 3929,
+      "gazetteer:level": 1,
+      "gazetteer:variant": "display",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 26,
+      "gazetteer:row_groups": 152,
+      "gazetteer:footer_metadata_bytes": 334680
+    },
+    "boundaries-county-full": {
+      "href": "../county/overture_county.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "County Boundaries (full)",
+      "roles": [
+        "gazetteer-boundaries"
+      ],
+      "file:size": 680955758,
+      "table:row_count": 38937,
+      "gazetteer:level": 2,
+      "gazetteer:variant": "full",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 96,
+      "gazetteer:row_groups": 406,
+      "gazetteer:footer_metadata_bytes": 1482984
+    },
+    "boundaries-county-display": {
+      "href": "../county/overture_county_display.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "County Boundaries (display)",
+      "roles": [
+        "gazetteer-boundaries",
+        "overview"
+      ],
+      "file:size": 117937697,
+      "table:row_count": 38937,
+      "gazetteer:level": 2,
+      "gazetteer:variant": "display",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 96,
+      "gazetteer:row_groups": 406,
+      "gazetteer:footer_metadata_bytes": 1173487
+    },
+    "boundaries-localadmin-full": {
+      "href": "../localadmin/overture_localadmin.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Local Administrative Boundaries (full)",
+      "roles": [
+        "gazetteer-boundaries"
+      ],
+      "file:size": 149503939,
+      "table:row_count": 21502,
+      "gazetteer:level": 3,
+      "gazetteer:variant": "full",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 240,
+      "gazetteer:row_groups": 90,
+      "gazetteer:footer_metadata_bytes": 307470
+    },
+    "boundaries-localadmin-display": {
+      "href": "../localadmin/overture_localadmin_display.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Local Administrative Boundaries (display)",
+      "roles": [
+        "gazetteer-boundaries",
+        "overview"
+      ],
+      "file:size": 56428419,
+      "table:row_count": 21502,
+      "gazetteer:level": 3,
+      "gazetteer:variant": "display",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 240,
+      "gazetteer:row_groups": 90,
+      "gazetteer:footer_metadata_bytes": 285852
+    },
+    "boundaries-locality-full": {
+      "href": "../locality/overture_locality.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Locality Boundaries (full)",
+      "roles": [
+        "gazetteer-boundaries"
+      ],
+      "file:size": 1315997215,
+      "table:row_count": 556094,
+      "gazetteer:level": 4,
+      "gazetteer:variant": "full",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 960,
+      "gazetteer:row_groups": 580,
+      "gazetteer:footer_metadata_bytes": 2444013
+    },
+    "boundaries-locality-display": {
+      "href": "../locality/overture_locality_display.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "Locality Boundaries (display)",
+      "roles": [
+        "gazetteer-boundaries",
+        "overview"
+      ],
+      "file:size": 912943874,
+      "table:row_count": 556094,
+      "gazetteer:level": 4,
+      "gazetteer:variant": "display",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 960,
+      "gazetteer:row_groups": 580,
+      "gazetteer:footer_metadata_bytes": 1663090
     },
     "pmtiles": {
       "href": "./names.pmtiles",

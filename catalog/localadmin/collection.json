@@ -5,7 +5,8 @@
     "https://schemas.portolan-sdi.org/portolan/v0.2.0/schema.json",
     "https://stac-extensions.github.io/table/v1.2.0/schema.json",
     "https://stac-extensions.github.io/file/v2.1.0/schema.json",
-    "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json"
+    "https://stac-extensions.github.io/web-map-links/v1.3.0/schema.json",
+    "https://cholmes.github.io/stac-gazetteer/gazetteer-boundaries/v1.0.0/schema.json"
   ],
   "id": "localadmin",
   "title": "Overture Divisions - Local Administrative Boundaries",
@@ -194,11 +195,19 @@
       "type": "application/vnd.apache.parquet",
       "title": "Local Administrative Boundaries, full-resolution GeoParquet 1.1 (90 row groups of 240 rows, zstd, page index, Hilbert order)",
       "roles": [
-        "data"
+        "data",
+        "gazetteer-boundaries"
       ],
       "file:size": 149503939,
       "file:checksum": "1220712eb25951093faa77f4b9f9b625f08f194c1df3fab107b9ed5716a76940f421",
-      "table:primary_geometry": "geometry"
+      "table:primary_geometry": "geometry",
+      "gazetteer:level": 3,
+      "gazetteer:variant": "full",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 240,
+      "gazetteer:row_groups": 90,
+      "gazetteer:footer_metadata_bytes": 307470
     },
     "display": {
       "href": "./overture_localadmin_display.parquet",
@@ -207,12 +216,20 @@
       "roles": [
         "data",
         "visual",
-        "overview"
+        "overview",
+        "gazetteer-boundaries"
       ],
       "file:size": 56428419,
       "file:checksum": "122071a6a486579458921792eeebb9d834ec9c45ace7c33dd38ab77bc53cee7de014",
       "table:primary_geometry": "geometry",
-      "description": "The same rows in the same order and the same row groups as the full file, simplified with ST_SimplifyPreserveTopology and then buffered **outward** by the same amount, so the shape always contains the true boundary rather than cutting corners off it. The tolerance is per feature, 0.4% of that feature's own bounding-box diagonal capped at 0.002 degrees, which here ranged from 1.02e-05 to 0.002 degrees. Verified per feature: 20,610 of 21,502 contain their full-resolution polygon completely, 0 fall below 99% of its area, and the worst is 0.9947. Draw it, filter with it, and measure with the full file."
+      "description": "The same rows in the same order and the same row groups as the full file, simplified with ST_SimplifyPreserveTopology and then buffered **outward** by the same amount, so the shape always contains the true boundary rather than cutting corners off it. The tolerance is per feature, 0.4% of that feature's own bounding-box diagonal capped at 0.002 degrees, which here ranged from 1.02e-05 to 0.002 degrees. Verified per feature: 20,610 of 21,502 contain their full-resolution polygon completely, 0 fall below 99% of its area, and the worst is 0.9947. Draw it, filter with it, and measure with the full file.",
+      "gazetteer:level": 3,
+      "gazetteer:variant": "display",
+      "gazetteer:geometry_column": "geometry",
+      "gazetteer:feature_id_column": "division_id",
+      "gazetteer:row_group_rows": 240,
+      "gazetteer:row_groups": 90,
+      "gazetteer:footer_metadata_bytes": 285852
     },
     "pmtiles": {
       "href": "./localadmin.pmtiles",
