@@ -407,27 +407,50 @@ NAMES_PATH = PUBLISH / "names" / "overture_division_names.parquet"
 # ---------------------------------------------------------------------------
 # Name normalization
 # ---------------------------------------------------------------------------
-# The index-file contract fixes this: NFD, strip combining marks (Unicode
-# category Mn), lowercase, collapse whitespace, trim, and keep only Unicode
-# letters, digits, space, hyphen and apostrophe. Everything else is removed.
-# The alphabet matters because the geocoder normalizes the user's keystrokes
-# with the same rule in JavaScript and then compares strings byte-wise against
-# this column; a character this rule keeps and the client's rule drops makes
-# the binary search miss.
-_KEEP = re.compile(r"[^\w\s'-]", re.UNICODE)
-_UNDERSCORE = re.compile(r"_")
-_WS = re.compile(r"\s+")
+# The index-file contract fixes this, and the function below MUST match
+# `normalizeName` in `@cngeo/spec` (packages/spec/src/normalize.js) byte for
+# byte. That function is normative: it is what the geocoder folds the user's
+# keystrokes with before comparing them byte-wise against this column, and it
+# is what `gazetteer:normalization: nfd-strip-marks-lower/1` names. In order:
+#
+#   1. NFD decompose.
+#   2. Strip every combining mark -- category M*, i.e. Mn, Mc and Me, the
+#      JavaScript `\p{M}`. `unicodedata.combining()` is NOT that test: it is 0
+#      for a spacing mark (Mc) such as the Bengali vowel sign U+09BF.
+#   3. Lowercase (`str.lower()`, the JS `toLowerCase()`; not `casefold()`).
+#   4. REMOVE every character that is not a letter (L*), a digit (N*), a
+#      literal space, an apostrophe or a hyphen.
+#   5. Collapse runs of spaces and trim.
+#
+# Step 4 removes; it does not substitute a space. A previous version replaced
+# each disallowed character with a space, so "Murang’a" folded to "murang a"
+# where a client computes "muranga", and "Хохлов/Хохлув" to "хохлов хохлув"
+# where a client computes "хохловхохлув". Those rows sorted where no prefix
+# search for them would look. The conformance checker in cng-map-widgets
+# (tools/gazetteer-conformance.mjs) found it: 123 of 3,000 sampled rows.
 
 
 def normalize_name(name: str | None) -> str | None:
-    """Fold a display name to the index's sort key."""
+    """Fold a display name to the index's sort key. See the comment above."""
     if name is None:
         return None
     decomposed = unicodedata.normalize("NFD", name)
-    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
-    # \w includes the underscore, which is not in the declared alphabet.
-    cleaned = _UNDERSCORE.sub(" ", _KEEP.sub(" ", stripped))
-    folded = _WS.sub(" ", cleaned).strip().lower()
+    stripped = "".join(c for c in decomposed if unicodedata.category(c)[0] != "M")
+    lowered = stripped.lower()
+    # `Cn` -- a code point THIS interpreter's Unicode database has no entry
+    # for -- is kept, not dropped. The database ships with Python (14.0 in
+    # 3.11) and trails the browsers the geocoder runs in (Unicode 17 in
+    # current V8), so an unknown code point in a real place name is almost
+    # always a letter assigned since: CJK Extension H ideographs in Chinese
+    # village names, measured. Dropping them folded "上村\U00031587" to "上村"
+    # where a client computes the full string, and the row was unfindable.
+    kept = "".join(
+        c for c in lowered
+        if unicodedata.category(c)[0] in ("L", "N")
+        or unicodedata.category(c) == "Cn"
+        or c in " '-"
+    )
+    folded = " ".join(kept.split())
     return folded or None
 
 

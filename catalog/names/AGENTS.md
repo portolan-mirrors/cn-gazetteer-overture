@@ -37,13 +37,13 @@ administrative boundaries only — **never street addresses**. Public root:
 `https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/catalog.json`
 
 ```
-names/overture_division_names.parquet            409.2 MB, 5,604,413 rows, 876 row groups of 6,400
-names/overture_division_names_prominent.parquet  12.9 MB, 168,018 rows, 110 row groups of 1,536 — the eager-load subset
+names/overture_division_names.parquet            409.0 MB, 5,604,021 rows, 876 row groups of 6,400
+names/overture_division_names_prominent.parquet  12.9 MB, 167,842 rows, 110 row groups of 1,536 — the eager-load subset
 names/index.json                                 7,916 bytes, the manifest to fetch first
 names/names.pmtiles                              146.3 MB, zoom 0-8, layer "names"
 ```
 
-3,572,796 primary rows and 2,031,617 alternative-spelling rows. The `geometry`
+3,572,796 primary rows and 2,031,225 alternative-spelling rows. The `geometry`
 column is **one point per division**, from `ST_PointOnSurface` of its polygon
 where there is one and Overture's own division point where there is not. It is
 a marker, not a shape: do not compute area, length or containment from this
@@ -51,8 +51,8 @@ file. The shape lives in the boundary collection at the row's `level`.
 
 ## Two files: read the small one first
 
-`overture_division_names_prominent.parquet` is the **prominent index**: 168,018
-of the full index's 5,604,413 rows, 12.9 MB against 409.2 MB, in the same
+`overture_division_names_prominent.parquet` is the **prominent index**: 167,842
+of the full index's 5,604,021 rows, 12.9 MB against 409.0 MB, in the same
 schema and the same sort. It is a strict row subset — it copies rows rather
 than recomputing them — so a hit found in it carries the same `feature_id` and
 the same `geometry_ref` as the same row in the full index and resolves to
@@ -62,8 +62,8 @@ Measured with hyparquet, reading one row group cold:
 
 | | full index | prominent index |
 |---|---|---|
-| size | 409.2 MB | 12.9 MB |
-| rows | 5,604,413 | 168,018 |
+| size | 409.0 MB | 12.9 MB |
+| rows | 5,604,021 | 167,842 |
 | footer, speculative 512 KiB tail | 2.15 MB in **2 requests** | 524 KB in 1 |
 | footer, exact `footer_metadata_bytes` | 2.15 MB in 1 request | 265 KB in 1 |
 | one row group | 487 KB | 128 KB |
@@ -98,14 +98,14 @@ display file, and the attribution each source requires with a `share_alike`
 flag. A widget reads the attribution out of it and shows it before any search
 happens, because ODbL requires that whether or not a search happens.
 
-**Then range-request the index.** At 409.2 MB this file is not meant to be
+**Then range-request the index.** At 409.0 MB this file is not meant to be
 loaded whole. The manifest's `index.size` lets the footer read be one
-exactly-sized tail request of 2,150,142 bytes rather than a speculative 512 KB.
+exactly-sized tail request of 2,149,651 bytes rather than a speculative 512 KB.
 After that, the sort does the work.
 
-Measured over all 189,359 two-character prefixes that occur in `name_norm`: a
+Measured over all 192,573 two-character prefixes that occur in `name_norm`: a
 prefix touches a **minimum of 1, a median of 1, a 95th percentile of 1 and a
-maximum of 22** row groups, each about 475.2 KB **[derived:
+maximum of 22** row groups, each about 475.0 KB **[derived:
 tools/measure_index.py]**. Full numbers, including compressed bytes per column,
 are in `docs/index-measurements.md` in the
 [repository](https://github.com/portolan-mirrors/cn-gazetteer-overture).
@@ -185,11 +185,11 @@ GROUP BY 1 ORDER BY 1;
 
 ```
 level  rows     primary_rows  alt_rows  with_boundary
-0      25620    272           25348     25620
-1      89372    3929          85443     89372
-2      186018   38937         147081    186018
-3      72947    21502         51445     72947
-4      5230456  3508156       1722300   1122847
+0      25541    272           25269     25541
+1      89327    3929          85398     89327
+2      185992   38937         147055    185992
+3      72930    21502         51428     72930
+4      5230231  3508156       1722075   1122611
 ```
 
 Level 0 is country and dependency, 1 region, 2 county, 3 localadmin, 4
@@ -334,16 +334,16 @@ GROUP BY 1 ORDER BY 2 DESC LIMIT 12;
 
 ```
 name_lang       rows
-en              641853
-ru              128137
-de              92105
+en              641818
+ru              128068
+de              92099
 ko              84187
-uk              49237
+uk              49234
 genitive        46479
-pl              44829
-ar              43803
+pl              44798
+ar              43805
 zh-Latn-pinyin  37419
-zh-Hant         36104
+zh-Hant         36103
 zh              35296
 ja              35171
 ```
@@ -360,12 +360,12 @@ WHERE path_in_schema = 'name_norm'
 ```
 
 ```
-row_group  rows  first_name_norm  last_name_norm
-0          6400  'a forza         a agrina
-1          6400  a agua           a penamoura
-2          6400  a penamusga      abdon castro tolay
-400        6400  patrao-mor       pcoline
-875        4413  龙岘3洞             𱊜尔蓬
+row_group  rows  first_name_norm     last_name_norm
+0          6400  'a forza            a agua
+1          6400  a aguada de arriba  a penela
+2          6400  a penela            abdouzak
+400        6400  patrick springs     pe de serra
+875        4021  龙村                  𱊜尔蓬
 ```
 
 Tight, non-overlapping alphabetical ranges. A client binary-searches these and

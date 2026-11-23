@@ -333,7 +333,14 @@ def verify(out: Path, full_rows: int) -> None:
     if md.num_rows >= full_rows:
         problems.append("the prominent index is not smaller than the full index")
 
+    # Truncation is tested exactly, the way build_names.py tests it: the file
+    # is sorted by name_norm, so an untruncated min is the group's first value
+    # and an untruncated max its last. The previous test here flagged any
+    # statistic of 64 characters or more as one that "may" be truncated: a
+    # guess from length, which fails the build whenever a long name happens
+    # to land on a row group boundary although nothing is wrong with the file.
     truncated = 0
+    start = 0
     for g in range(md.num_row_groups):
         rg = md.row_group(g)
         idx = next(
@@ -344,10 +351,14 @@ def verify(out: Path, full_rows: int) -> None:
         if st is None or st.min is None or st.max is None:
             problems.append(f"row group {g} has no name_norm statistics")
             break
-        if len(st.min) >= 64 or len(st.max) >= 64:
+        first, last = norm[start], norm[start + rg.num_rows - 1]
+        start += rg.num_rows
+        if first is None or last is None:
+            continue  # reported above as "name_norm holds a null"
+        if st.min != first or st.max != last:
             truncated += 1
     if truncated:
-        problems.append(f"{truncated} row group(s) may have truncated statistics")
+        problems.append(f"{truncated} row group(s) have truncated name_norm statistics")
 
     if problems:
         raise SystemExit("\n".join(f"error  {p}" for p in problems))
