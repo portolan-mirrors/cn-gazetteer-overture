@@ -34,9 +34,9 @@ licence and coverage rather than quality.
 | Status | **experimental**, unlisted | the default |
 | Levels | country, region, county, localadmin, **locality** | ADM0, ADM1, ADM2 |
 | City and village boundaries | yes | no |
-| Multilingual names | yes, 2,031,617 alternative spellings | no |
+| Multilingual names | yes, 2,031,225 alternative spellings | no |
 | Stable feature key | Overture GERS id | geoBoundaries `shapeID` |
-| Index size | 409.2 MB, range-request path | 3.6 MB, loads whole |
+| Index size | 409.0 MB, range-request path | 3.6 MB, loads whole |
 
 **Take the CC-BY one unless you need what this one adds.** Share-alike is a
 real obligation: a database you derive from this catalog has to be offered
@@ -53,7 +53,7 @@ application, not to whoever builds it.
 | [`county`](county/collection.json) | 2 | 38,937 | 649.4 MB | 112.5 MB | 88.7 MB |
 | [`localadmin`](localadmin/collection.json) | 3 | 21,502 | 142.6 MB | 53.8 MB | 42.4 MB |
 | [`locality`](locality/collection.json) | 4 | 556,094 | 1.2 GB | 870.7 MB | 682.8 MB |
-| [`names`](names/collection.json) | 0-4 | 5,604,413 | 409.2 MB | - | 146.3 MB |
+| [`names`](names/collection.json) | 0-4 | 5,604,021 | 409.0 MB | - | 146.3 MB |
 
 About 4.7 GB in all. The five boundary levels are **not** a seamless coverage
 the way a composite is: Overture publishes a division where a division exists,
@@ -72,12 +72,12 @@ widgets project implements it:
    index's size, row group count, `catalog_version` and required attribution.
    It renders the attribution immediately, because ODbL requires it whether or
    not a search happens.
-2. **Index load.** The index is 409.2 MB, so the client takes the
-   **range-request path**: one exactly-sized 2,150,142-byte tail request for
+2. **Index load.** The index is 409.0 MB, so the client takes the
+   **range-request path**: one exactly-sized 2,149,651-byte tail request for
    the footer, then a binary search over the row group statistics on
    `name_norm`.
 3. **Keystrokes.** Each typed prefix is folded with the same rule the index
-   used and resolved from a median of 1 row group of about 475.2 KB. Results
+   used and resolved from a median of 1 row group of about 475.0 KB. Results
    arrive as a mixture of primary and alternative-spelling rows, in any
    language; the client dedupes by `feature_id` and ranks on `level`,
    `population`, `prominence`, `name_dupes` and whether the bbox intersects the
@@ -146,14 +146,14 @@ to read:
 
 | | upstream release | this catalog |
 |---|---|---|
-| files to search by name | 1 file, 584 MB (plus 8 files, 4.6 GB, for the polygons) | one sorted index, 409.2 MB, or the 12.9 MiB prominent index |
+| files to search by name | 1 file, 584 MB (plus 8 files, 4.6 GB, for the polygons) | one sorted index, 409.0 MB, or the 12.9 MiB prominent index |
 | sorted by name | no - `sorting_columns` not declared | yes, `name_norm` byte-wise, declared in the footer |
 | find one place by name | scan every part file | binary search over row group statistics, one range request |
 | row groups | 256 groups of ~18,400 rows, median 2.22 MB, up to 3.85 MB | 876 groups of 6,400 rows in the index; 8 to 960 rows in the boundary files, sized by what one feature costs |
 | columns | 50 leaf chunks of the full schema, nested structs | a flat projection; 20 columns in the index |
 | footer read | 1.47 MB, and **two** requests, because a speculative 512 KiB tail falls short | exact `footer_bytes` and `footer_metadata_bytes` in `names/index.json`, one request |
 | one division's outline | a multi-megabyte row group of the full schema | one row group of a display file, simplified and outward-buffered |
-| multilingual search | unnest a `names.common` map per row at query time | 2,031,617 pre-expanded alternative-spelling rows, in the sort |
+| multilingual search | unnest a `names.common` map per row at query time | 2,031,225 pre-expanded alternative-spelling rows, in the sort |
 | tiles | none | PMTiles per collection |
 
 None of that is a criticism of the upstream files: they are laid out for bulk

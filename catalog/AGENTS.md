@@ -215,11 +215,11 @@ FROM 'https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/over
 
 ```
 level  divisions  alt_spellings  with_boundary
-0      272        25348          272
-1      3929       85443          3929
-2      38937      147081         38937
-3      21502      51445          21502
-4      3508156    1722300        556094
+0      272        25269          272
+1      3929       85398          3929
+2      38937      147055         38937
+3      21502      51428          21502
+4      3508156    1722075        556094
 ```
 
 The gap at level 4 is the headline fact of this catalog: Overture publishes

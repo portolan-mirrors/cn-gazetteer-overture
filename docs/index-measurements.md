@@ -8,13 +8,13 @@ comes from here. Rerun after any rebuild.
 
 | | |
 |---|---|
-| Rows | 5,604,413 |
-| Size | 409.2 MB (429,055,759 bytes) |
-| Bytes per row | 76.6 |
+| Rows | 5,604,021 |
+| Size | 409.0 MB (428,919,305 bytes) |
+| Bytes per row | 76.5 |
 | Row groups | 876 of 6,400 rows |
-| Mean row group | 475.2 KB |
-| Footer metadata | 2,150,142 bytes (0.50% of the file) |
-| Page index | 667,468 bytes (0.16% of the file) |
+| Mean row group | 475.0 KB |
+| Footer metadata | 2,149,651 bytes (0.50% of the file) |
+| Page index | 667,002 bytes (0.16% of the file) |
 | Columns | 20 |
 
 A range-request client fetches the footer metadata once, and the
@@ -56,7 +56,7 @@ group.
 
 ## Row groups touched per two-letter prefix
 
-Measured over all 189,359 two-character prefixes that occur
+Measured over all 192,573 two-character prefixes that occur
 in `name_norm`, using the same arithmetic a client does against the
 row group statistics.
 
@@ -68,7 +68,7 @@ row group statistics.
 | 95th percentile | 1 |
 | maximum | 22 |
 
-So a typed two-letter prefix costs a median of 1 row group read of about 475.2 KB, on top of the 2,150,142-byte footer metadata read that happens once, and never more than 22.
+So a typed two-letter prefix costs a median of 1 row group read of about 475.0 KB, on top of the 2,149,651-byte footer metadata read that happens once, and never more than 22.
 
 The worst prefixes, which are the common ones:
 
@@ -89,28 +89,28 @@ The worst prefixes, which are the common ones:
 
 | column | bytes | share |
 |---|---|---|
-| `feature_id` | 106,833,636 | 25.1% |
-| `geometry` | 58,868,346 | 13.8% |
-| `alt_of` | 37,853,068 | 8.9% |
-| `parent_name` | 33,308,671 | 7.8% |
-| `bbox.xmin` | 27,367,908 | 6.4% |
-| `bbox.xmax` | 27,366,977 | 6.4% |
-| `bbox.ymin` | 27,271,777 | 6.4% |
-| `bbox.ymax` | 27,270,147 | 6.4% |
-| `name` | 26,709,741 | 6.3% |
-| `name_norm` | 24,821,348 | 5.8% |
-| `area_km2` | 7,433,543 | 1.7% |
-| `population` | 4,279,113 | 1.0% |
-| `geometry_ref.row` | 3,171,539 | 0.7% |
-| `prominence` | 3,022,520 | 0.7% |
-| `country` | 2,681,378 | 0.6% |
-| `class` | 1,405,030 | 0.3% |
-| `name_lang` | 1,391,398 | 0.3% |
-| `geometry_ref.row_group` | 1,386,898 | 0.3% |
-| `name_dupes` | 1,287,675 | 0.3% |
-| `geometry_ref.file` | 644,437 | 0.2% |
-| `has_boundary` | 520,985 | 0.1% |
-| `subtype` | 473,983 | 0.1% |
-| `level` | 434,666 | 0.1% |
-| `name_lang_count` | 360,653 | 0.1% |
+| `feature_id` | 106,841,914 | 25.1% |
+| `geometry` | 58,871,089 | 13.8% |
+| `alt_of` | 37,853,055 | 8.9% |
+| `parent_name` | 33,309,708 | 7.8% |
+| `bbox.xmin` | 27,368,860 | 6.4% |
+| `bbox.xmax` | 27,366,680 | 6.4% |
+| `bbox.ymin` | 27,270,449 | 6.4% |
+| `bbox.ymax` | 27,267,965 | 6.4% |
+| `name` | 26,716,538 | 6.3% |
+| `name_norm` | 24,672,213 | 5.8% |
+| `area_km2` | 7,435,723 | 1.7% |
+| `population` | 4,277,192 | 1.0% |
+| `geometry_ref.row` | 3,171,254 | 0.7% |
+| `prominence` | 3,021,310 | 0.7% |
+| `country` | 2,681,930 | 0.6% |
+| `class` | 1,405,263 | 0.3% |
+| `name_lang` | 1,389,446 | 0.3% |
+| `geometry_ref.row_group` | 1,387,097 | 0.3% |
+| `name_dupes` | 1,289,621 | 0.3% |
+| `geometry_ref.file` | 644,448 | 0.2% |
+| `has_boundary` | 520,879 | 0.1% |
+| `subtype` | 472,936 | 0.1% |
+| `level` | 433,587 | 0.1% |
+| `name_lang_count` | 360,783 | 0.1% |
 | `source` | 72,708 | 0.0% |

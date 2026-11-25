@@ -2,12 +2,12 @@
   "spec": "cnmw-index/1.0",
   "source": "overture-divisions",
   "experimental": true,
-  "index_version": "2026-11-12T00:00:00Z",
+  "index_version": "2026-11-23T00:00:00Z",
   "catalog_version": "overture-divisions-2026-10-21.0",
   "overture_release": "2026-10-21.0",
-  "rows": 5604413,
+  "rows": 5604021,
   "primary_rows": 3572796,
-  "alt_rows": 2031617,
+  "alt_rows": 2031225,
   "levels": [
     0,
     1,
@@ -37,12 +37,12 @@
   "dropped_unnamed": 0,
   "index": {
     "url": "./overture_division_names.parquet",
-    "size": 429055759,
-    "row_count": 5604413,
+    "size": 428919305,
+    "row_count": 5604021,
     "row_groups": 876,
-    "footer_bytes": 2817610,
-    "footer_metadata_bytes": 2150142,
-    "checksum": "1220f8fa54fe3dbf1c21a645833633a566ba43946fe4fa3f46605d65132e07ee7d27",
+    "footer_bytes": 2816653,
+    "footer_metadata_bytes": 2149651,
+    "checksum": "1220623972af99d43048a154649092659ad0a4a1905c91b161b3c4e5d2785add3435",
     "row_group_rows": 6400,
     "sorted_by": [
       "name_norm",
@@ -53,12 +53,12 @@
   },
   "prominent_index": {
     "url": "./overture_division_names_prominent.parquet",
-    "size": 13566995,
-    "row_count": 168018,
+    "size": 13556855,
+    "row_count": 167842,
     "row_groups": 110,
-    "footer_bytes": 345805,
-    "footer_metadata_bytes": 264742,
-    "checksum": "1220983613721fb8c442a302eee5ad19104027dfcff44857b815c6679af4bdb9e259",
+    "footer_bytes": 346237,
+    "footer_metadata_bytes": 264959,
+    "checksum": "122093afa134c1ec4d083261641f940ca2cef62a2944097394045878f55c3748c0c0",
     "row_group_rows": 1536,
     "sorted_by": [
       "name_norm",
@@ -70,9 +70,9 @@
     "load": "eager",
     "rows_per_level": {
       "0": {
-        "rows": 25620,
+        "rows": 25541,
         "primary_rows": 272,
-        "alt_rows": 25348
+        "alt_rows": 25269
       },
       "1": {
         "rows": 3929,
@@ -90,9 +90,9 @@
         "alt_rows": 0
       },
       "4": {
-        "rows": 78030,
+        "rows": 77933,
         "primary_rows": 18931,
-        "alt_rows": 59099
+        "alt_rows": 59002
       }
     },
     "criteria": {

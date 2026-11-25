@@ -3,7 +3,7 @@
 > Overture Maps divisions, release 2026-10-21.0, as cloud-native GeoParquet and
 > PMTiles for a browser geocoder. Five boundary levels from country to
 > locality, each with a display-simplified companion, plus a multilingual name
-> search index of 5,604,413 rows over 3,572,796 divisions. Static files on
+> search index of 5,604,021 rows over 3,572,796 divisions. Static files on
 > object storage, no API, no credentials. Produced by Overture Maps Foundation;
 > this catalog republishes, it does not produce.
 
@@ -79,7 +79,7 @@ https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/changes-from-ups
   guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/locality/AGENTS.md)
 - [names — Multilingual Name Search
   Index](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/collection.json):
-  5,604,413 rows (3,572,796 divisions + 2,031,617 alternative spellings), 409.2
+  5,604,021 rows (3,572,796 divisions + 2,031,225 alternative spellings), 409.0
   MB, sorted by folded name, 876 row groups of 6,400. [agent
   guide](https://data.source.coop/portolan-mirrors/cn-gazetteer-overture/names/AGENTS.md)
 

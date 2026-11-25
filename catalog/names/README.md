@@ -20,7 +20,7 @@ does not. It resolves place names and administrative boundaries, **not street
 addresses**.
 
 **There are two files here, and the small one is where to start.** The full
-index is 409.2 MB, which no browser loads, so every keystroke against it is an
+index is 409.0 MB, which no browser loads, so every keystroke against it is an
 HTTP round trip. `overture_division_names_prominent.parquet` is 12.9 MiB -- the
 same schema, the same sort, a strict subset of the same rows -- small enough to
 fetch whole on focus and then answer keystrokes from memory. Measured with
@@ -33,16 +33,16 @@ the small file is also in it, with the same `feature_id` and the same
 
 | | |
 |---|---|
-| Rows | 5,604,413 |
+| Rows | 5,604,021 |
 | Primary rows, one per division | 3,572,796 |
-| Alternative-spelling rows | 2,031,617 |
+| Alternative-spelling rows | 2,031,225 |
 | Language codes represented | 1,012 |
-| Divisions with a boundary in this catalog | 1,496,804 |
-| Parquet | 409.2 MB, 876 row groups of 6,400 rows, zstd, page index |
-| Bytes per row | 76.56 |
-| Row group | ~475.2 KB |
-| Footer + page index | 2,150,142 bytes (`footer_bytes`); thrift footer alone 2,150,142 (`footer_metadata_bytes`) |
-| Prominent index | 12.9 MB, 168,018 rows, 110 row groups of 1,536, footer 264,742 bytes |
+| Divisions with a boundary in this catalog | 1,496,401 |
+| Parquet | 409.0 MB, 876 row groups of 6,400 rows, zstd, page index |
+| Bytes per row | 76.54 |
+| Row group | ~475.0 KB |
+| Footer + page index | 2,149,651 bytes (`footer_bytes`); thrift footer alone 2,149,651 (`footer_metadata_bytes`) |
+| Prominent index | 12.9 MB, 167,842 rows, 110 row groups of 1,536, footer 264,959 bytes |
 | Sorted by | `name_norm`, `level`, `country`, `feature_id`, byte-wise on UTF-8, declared in the footer |
 | PMTiles | 146.3 MB, zoom 0-8 |
 | CRS | CRS84 (EPSG:4326) |
@@ -57,13 +57,13 @@ collection at the same level.
 
 | level | subtypes | rows | primary | alternatives | with a boundary |
 |---|---|---|---|---|---|
-| 0 | country, dependency | 25,620 | 272 | 25,348 | 25,620 |
-| 1 | region | 89,372 | 3,929 | 85,443 | 89,372 |
-| 2 | county | 186,018 | 38,937 | 147,081 | 186,018 |
-| 3 | localadmin | 72,947 | 21,502 | 51,445 | 72,947 |
-| 4 | locality | 5,230,456 | 3,508,156 | 1,722,300 | 1,122,847 |
+| 0 | country, dependency | 25,541 | 272 | 25,269 | 25,541 |
+| 1 | region | 89,327 | 3,929 | 85,398 | 89,327 |
+| 2 | county | 185,992 | 38,937 | 147,055 | 185,992 |
+| 3 | localadmin | 72,930 | 21,502 | 51,428 | 72,930 |
+| 4 | locality | 5,230,231 | 3,508,156 | 1,722,075 | 1,122,611 |
 
-The 2,075,992 primary rows with no boundary are almost all localities that
+The 2,076,395 primary rows with no boundary are almost all localities that
 Overture publishes as a point only. `has_boundary` is false on them,
 `geometry_ref` and `area_km2` are null, and `bbox` is the point collapsed to
 zero width. **A client has to handle them**: they are the majority of the
@@ -71,13 +71,13 @@ localities in this index, and they are still the right answer to a search.
 
 ## How to read it
 
-**Range-request it.** At 409.2 MB this index is far too large to load whole,
+**Range-request it.** At 409.0 MB this index is far too large to load whole,
 and it is not meant to be. The sort is the whole design: row group statistics
 on `name_norm` are tight, non-overlapping alphabetical ranges, the footer
 declares the sort order, and the Parquet page index is written, so a client
 binary-searches the statistics and reads only the groups a prefix can live in.
 
-Measured over all 189,359 two-character prefixes that occur in `name_norm`:
+Measured over all 192,573 two-character prefixes that occur in `name_norm`:
 
 | | row groups touched |
 |---|---|
@@ -87,8 +87,8 @@ Measured over all 189,359 two-character prefixes that occur in `name_norm`:
 | 95th percentile | 1 |
 | maximum | 22 |
 
-So a typed two-letter prefix costs a median of 1 read of about 475.2 KB, on top
-of a 2,150,142-byte footer read that happens once. The manifest publishes
+So a typed two-letter prefix costs a median of 1 read of about 475.0 KB, on top
+of a 2,149,651-byte footer read that happens once. The manifest publishes
 `index.size` and `index.row_groups` so that footer read can be a single
 exactly-sized tail request rather than a speculative one. Full numbers,
 including compressed bytes per column, are in
@@ -134,14 +134,14 @@ The language codes with the most indexed spellings:
 
 | language | rows |
 |---|---|
-| `en` | 641,853 |
-| `ru` | 128,137 |
-| `de` | 92,105 |
+| `en` | 641,818 |
+| `ru` | 128,068 |
+| `de` | 92,099 |
 | `ko` | 84,187 |
-| `uk` | 49,237 |
+| `uk` | 49,234 |
 | `genitive` | 46,479 |
-| `pl` | 44,829 |
-| `ar` | 43,803 |
+| `pl` | 44,798 |
+| `ar` | 43,805 |
 
 ## The index contract
 

@@ -23,10 +23,10 @@ tools/distributions.sql reruns the same queries.
 # locality.area_km2: bands [137293, 49483, 123412, 107686, 46874, 91346]
 # locality.population: bands [45873, 73543, 34898, 27121, 41147, 27194]
 # locality.name_langs: bands [82708, 68834, 61363, 46039, 11257]
-# names.name_dupes: bands [3156802, 982760, 620804, 729861, 114186]
-# names.name_lang_count: bands [5420570, 114379, 55009, 10516, 3804, 135]
-# names.population: bands [298529, 331290, 143725, 192515, 194670, 204860]
-# names.level: per level {0: 25620, 1: 89372, 2: 186018, 3: 72947, 4: 5230456}
+# names.name_dupes: bands [3144238, 983665, 625203, 736233, 114682]
+# names.name_lang_count: bands [5420041, 114436, 55075, 10525, 3809, 135]
+# names.population: bands [298499, 331267, 143710, 192511, 194628, 204655]
+# names.level: per level {0: 25541, 1: 89327, 2: 185992, 3: 72930, 4: 5230231}
 # localadmin.country: 19 branch(es), counts [6257, 2927, 2853, 2173, 2119, 1959, 1132, 427, 401, 320, 275, 231, 143, 128, 89, 43, 15, 9, 1]
 # locality.class: 4 branch(es), counts [255619, 134176, 45758, 7148, 113393]
 

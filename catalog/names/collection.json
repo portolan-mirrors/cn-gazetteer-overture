@@ -12,7 +12,7 @@
   ],
   "id": "names",
   "title": "Overture Divisions Multilingual Gazetteer (Name Index)",
-  "description": "**EXPERIMENTAL.** The schema of this collection may change without notice, and the Source Cooperative repository that serves it is unlisted. The gazetteer itself -- a search sidecar, not a boundary dataset: 5,604,413 rows over 3,572,796 divisions in 272 countries, sorted by a folded form of the name. 2,031,617 of those rows are alternative spellings drawn from Overture's `names.common` map across 1,012 language codes, each pointing back at its division through `alt_of`, which is what makes this catalog worth its ODbL obligations. It resolves place names and administrative boundaries, **not street addresses**: there is no house number and no interpolation here. **The sort is the whole design.** This index is far too large to load whole, so the intended path is HTTP range requests: row group statistics on `name_norm` are tight, non-overlapping alphabetical ranges, the footer declares the sort, and the Parquet page index is written, so a typed prefix resolves from one or two row groups of about 478 KiB. A client that wants a keystroke answered with no round trip at all loads the **prominent index** instead -- a second, 8.6 MiB file in this same collection, same schema and same sort, holding every division down to localadmin, every alternative-language spelling of every country, and every locality Overture ranks at prominence 50 or above. `names/index.json` describes it under `prominent_index` with its selection criteria in full. Every row of either file carries the GERS `feature_id` that joins it to a boundary collection, a bbox to fly to, a point, and an advisory `geometry_ref` that turns the geometry fetch into a single range read. 2,952,062 divisions, almost all localities, have no polygon anywhere in this catalog and say so through `has_boundary`. The [agent guide](AGENTS.md) has the prefix-lookup recipe and the join back to geometry. **ODbL share-alike applies.** A database derived from this collection has to be released under ODbL as well, and an application that shows it has to display the attribution: *\u00a9 OpenStreetMap contributors. Available under the [Open Database License](https://www.openstreetmap.org/copyright).* The [CC-BY-4.0 counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog) carries no such obligation and less coverage.",
+  "description": "**EXPERIMENTAL.** The schema of this collection may change without notice, and the Source Cooperative repository that serves it is unlisted. The gazetteer itself -- a search sidecar, not a boundary dataset: 5,604,021 rows over 3,572,796 divisions in 272 countries, sorted by a folded form of the name. 2,031,225 of those rows are alternative spellings drawn from Overture's `names.common` map across 1,012 language codes, each pointing back at its division through `alt_of`, which is what makes this catalog worth its ODbL obligations. It resolves place names and administrative boundaries, **not street addresses**: there is no house number and no interpolation here. **The sort is the whole design.** This index is far too large to load whole, so the intended path is HTTP range requests: row group statistics on `name_norm` are tight, non-overlapping alphabetical ranges, the footer declares the sort, and the Parquet page index is written, so a typed prefix resolves from one or two row groups of about 478 KiB. A client that wants a keystroke answered with no round trip at all loads the **prominent index** instead -- a second, 8.6 MiB file in this same collection, same schema and same sort, holding every division down to localadmin, every alternative-language spelling of every country, and every locality Overture ranks at prominence 50 or above. `names/index.json` describes it under `prominent_index` with its selection criteria in full. Every row of either file carries the GERS `feature_id` that joins it to a boundary collection, a bbox to fly to, a point, and an advisory `geometry_ref` that turns the geometry fetch into a single range read. 2,952,062 divisions, almost all localities, have no polygon anywhere in this catalog and say so through `has_boundary`. The [agent guide](AGENTS.md) has the prefix-lookup recipe and the join back to geometry. **ODbL share-alike applies.** A database derived from this collection has to be released under ODbL as well, and an application that shows it has to display the attribution: *\u00a9 OpenStreetMap contributors. Available under the [Open Database License](https://www.openstreetmap.org/copyright).* The [CC-BY-4.0 counterpart](https://source.coop/portolan-mirrors/geoboundaries-catalog) carries no such obligation and less coverage.",
   "license": "ODbL-1.0",
   "keywords": [
     "experimental",
@@ -96,7 +96,7 @@
   "gazetteer:dropped_unnamed": 0,
   "gazetteer:stats_truncated": false,
   "table:primary_geometry": "geometry",
-  "table:row_count": 5604413,
+  "table:row_count": 5604021,
   "table:columns": [
     {
       "name": "name",
@@ -208,15 +208,15 @@
         "data",
         "gazetteer-index"
       ],
-      "file:size": 429055759,
-      "file:checksum": "1220f8fa54fe3dbf1c21a645833633a566ba43946fe4fa3f46605d65132e07ee7d27",
+      "file:size": 428919305,
+      "file:checksum": "1220623972af99d43048a154649092659ad0a4a1905c91b161b3c4e5d2785add3435",
       "table:primary_geometry": "geometry",
       "description": "The whole gazetteer. Too large to load in a browser, and not meant to be: it is sorted by `name_norm` so a typed prefix is a range request. A client that wants an answer with no round trip loads the `prominent-index` asset instead and comes here for anything that file can miss.",
-      "table:row_count": 5604413,
+      "table:row_count": 5604021,
       "gazetteer:row_groups": 876,
       "gazetteer:row_group_rows": 6400,
       "gazetteer:feature_id_column": "feature_id",
-      "gazetteer:footer_metadata_bytes": 2150142
+      "gazetteer:footer_metadata_bytes": 2149651
     },
     "prominent-index": {
       "href": "./overture_division_names_prominent.parquet",
@@ -228,15 +228,15 @@
         "gazetteer-index",
         "prominent"
       ],
-      "file:size": 13566995,
-      "file:checksum": "1220983613721fb8c442a302eee5ad19104027dfcff44857b815c6679af4bdb9e259",
+      "file:size": 13556855,
+      "file:checksum": "122093afa134c1ec4d083261641f940ca2cef62a2944097394045878f55c3748c0c0",
       "table:primary_geometry": "geometry",
-      "table:row_count": 168018,
-      "description": "A strict row subset of the full index -- 168,018 rows of 5,604,413 -- small enough for a client to fetch whole on focus and answer keystrokes from memory, while the full index stays available by range request for anything deeper. Same schema, same sort, same `feature_id` and `geometry_ref`, so a hit found here resolves its geometry exactly as a hit found there. It holds every division from country down to localadmin, every alternative-language spelling of every country and dependency, and every locality Overture ranks at `cartography.prominence` 50 or above. What it can miss, and therefore when to fall back: any locality below that cut, and any alternative-language name of a region, county, localadmin or locality. The full criteria, with row counts per level, are in `index.json` under `prominent_index.criteria`.",
+      "table:row_count": 167842,
+      "description": "A strict row subset of the full index -- 167,842 rows of 5,604,021 -- small enough for a client to fetch whole on focus and answer keystrokes from memory, while the full index stays available by range request for anything deeper. Same schema, same sort, same `feature_id` and `geometry_ref`, so a hit found here resolves its geometry exactly as a hit found there. It holds every division from country down to localadmin, every alternative-language spelling of every country and dependency, and every locality Overture ranks at `cartography.prominence` 50 or above. What it can miss, and therefore when to fall back: any locality below that cut, and any alternative-language name of a region, county, localadmin or locality. The full criteria, with row counts per level, are in `index.json` under `prominent_index.criteria`.",
       "gazetteer:row_groups": 110,
       "gazetteer:row_group_rows": 1536,
       "gazetteer:feature_id_column": "feature_id",
-      "gazetteer:footer_metadata_bytes": 264742
+      "gazetteer:footer_metadata_bytes": 264959
     },
     "index-manifest": {
       "href": "./index.json",
@@ -246,7 +246,7 @@
         "metadata"
       ],
       "file:size": 7916,
-      "file:checksum": "12209c52d37062bc05cfb25876be9803ff76a676f86aaa766e3a605ab69e459c2c6c",
+      "file:checksum": "1220dd2b57968642b477e66cbe348262b629de308294d861fd274f21f13792af2d86",
       "description": "The few kilobytes a client fetches before anything else. For the full index, the prominent index and every boundary and display file: the URL, size, checksum, row count, row group count and `row_group_rows`, plus two exact metadata sizes. `footer_bytes` is the whole trailing span, thrift footer plus page index, so one range request of exactly that many bytes from the end of a file leaves a client holding all of its metadata; `footer_metadata_bytes` is the thrift footer alone, the minimum needed to locate row groups and what a hyparquet client should pass as `initialFetchSize`. Without them hyparquet speculates a 512 KiB tail, which on the 409 MB index is a guaranteed second round trip because its footer is 2.1 MB. Also carries `prominent_index.criteria` -- exactly which rows the small index holds and what it can miss -- the catalog version, and the attribution each file requires with a share_alike flag."
     },
     "boundaries-country-full": {
@@ -432,8 +432,8 @@
         "visual",
         "data"
       ],
-      "file:size": 153363552,
-      "file:checksum": "1220264656c698cd732054287b8c6bb26efe536b88bda55a346fa13afa3177240bff",
+      "file:size": 153382281,
+      "file:checksum": "1220b48e6a5e8b061799ab8faba37b40ed26a11439a34d98e21b187386bb9494555d",
       "pmtiles:layers": [
         "names"
       ]
@@ -552,8 +552,8 @@
       "roles": [
         "thumbnail"
       ],
-      "file:size": 586725,
-      "file:checksum": "12205c632a9955d30a32a034eed41901cf83d27d943ddb59d5a69cd9cfbddf8e4e71"
+      "file:size": 586717,
+      "file:checksum": "122081218ecb380d8c8810e85f9f8b5df94029986602c0394559a668aea069ce63cc"
     }
   },
   "links": [
